@@ -36,3 +36,33 @@
     transform: rotate(360deg);
   }
 }
+
+.TopBar{
+  width: 100%;
+  height: 70px;
+  display:flex;
+  justify-content: center;
+  flex-direction: row;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.MenuItems{
+  flex-direction: row;
+  display: flex;
+  position: relative;
+  z-index: 5;
+  width: 900px;
+  justify-content: right;
+}
+
+.MenuItem{
+  height:70px;
+  width:70px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
