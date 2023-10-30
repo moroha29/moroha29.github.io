@@ -63,13 +63,13 @@
   }
 
   .aboutMe{
-    height:600px;
+    height:calc(100vh - 90px);
   }
 
   .skills{
-    height:600px;
+    height:calc(100vh - 90px);
   }
 
   .experience{
-    height:600px;
+    height:calc(100vh - 90px);
   }

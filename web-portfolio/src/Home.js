@@ -12,10 +12,10 @@ export default function Home() {
 
     useEffect(() => {
       window.addEventListener("scroll", () => {
-        if (window.scrollY < 600) {
+        if (window.scrollY < window.innerHeight-90) {
           setShowScrollTopButton(true)
           setElementToScroll(true);
-        } else if (window.scrollY < 1200) {
+        } else if (window.scrollY < window.innerHeight*2-90*2) {
           setShowScrollTopButton(true)
           setElementToScroll(false);
         } else{
