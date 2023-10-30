@@ -1,5 +1,11 @@
 # moroha29.github.io
-# website in construction
+
+# Website in Construction (Progress)
+
+- Create Router for Menu (Done)
+- Projects Page
+- Updates Page
+- Main Page (About Me)
 
 # Getting Started with Create React App
 
