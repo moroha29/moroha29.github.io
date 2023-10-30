@@ -1,20 +1,59 @@
 import profileImage from './assets/profilepicture.png';
 import './Home.css';
+import { useRef,useEffect,useState } from "react";
 
 export default function Home() {
+    const aboutMe = useRef(null);
+    const skills = useRef(null);
+    const experience = useRef(null);
+    const [elementToScroll, setElementToScroll] = useState(false);
+    const [showScrollTopButton, setShowScrollTopButton] = useState(false);
+    
+
+    useEffect(() => {
+      window.addEventListener("scroll", () => {
+        if (window.scrollY < 600) {
+          setShowScrollTopButton(true)
+          setElementToScroll(true);
+        } else if (window.scrollY < 1200) {
+          setShowScrollTopButton(true)
+          setElementToScroll(false);
+        } else{
+          setShowScrollTopButton(false)
+        }
+      });
+     }, []);
+
+    const scrollToSection = (elementRef) => {
+      window.scrollTo({
+        top: elementRef.current.offsetTop,
+        behavior: "smooth",
+      });
+    };
+
+    const scrollTop = () => {
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    };
+
+    
   return (
     <div className="container content grid">
-        <img src={profileImage} alt="profileImage" className="profileImage"/>
-        <section className="aboutMe" id='aboutMe'>
-          About Me
-        </section>
-        <a href='#skills'><div className='down-arrow'></div></a>
-        <section className="skills" id='skills'>
-          Skills
-        </section>
-        <section className="experience" id='experience'>
-          Experience
-        </section>
+      <img ref={aboutMe} src={profileImage} alt="profileImage" className="profileImage"/>
+      <section className="aboutMe" id='aboutMe'>
+        About Me
+      </section>
+      <section ref={skills} className="skills" id='skills'>
+        Skills
+      </section>
+      <section ref={experience} className="experience" id='experience'>
+        Experience
+      </section>
+      <div>{showScrollTopButton && <div onClick={() => scrollToSection(elementToScroll?skills:experience)} className='down-arrow'></div>}
+            {!showScrollTopButton && <div onClick={() => scrollTop()} className='up-arrow'></div>}
+        </div>
     </div>
   );
 }
