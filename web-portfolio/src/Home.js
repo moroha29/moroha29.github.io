@@ -7,7 +7,7 @@ export default function Home() {
     const skills = useRef(null);
     const experience = useRef(null);
     const [elementToScroll, setElementToScroll] = useState(false);
-    const [showScrollTopButton, setShowScrollTopButton] = useState(false);
+    const [showScrollTopButton, setShowScrollTopButton] = useState(true);
     
 
     useEffect(() => {
