@@ -1,12 +1,13 @@
 import profileImage from './assets/profilepicture.png';
 import './Home.css';
+import Timeline from './components/timeline/timeline';
 import { useRef,useEffect,useState } from "react";
 
 export default function Home() {
     const aboutMe = useRef(null);
     const skills = useRef(null);
     const experience = useRef(null);
-    const [elementToScroll, setElementToScroll] = useState(false);
+    const [elementToScroll, setElementToScroll] = useState(true);
     const [showScrollTopButton, setShowScrollTopButton] = useState(true);
     
 
@@ -41,17 +42,55 @@ export default function Home() {
     
   return (
     <div className="container content grid">
-      <img ref={aboutMe} src={profileImage} alt="profileImage" className="profileImage"/>
-      <section className="aboutMe" id='aboutMe'>
-        About Me
-      </section>
-      <section ref={skills} className="skills" id='skills'>
-        Skills
+      <section ref={aboutMe} className="aboutMe" id='aboutMe'>
+        <div className='container'>
+          <div className='row'>
+            <div className='col-md-auto'>
+              <img src={profileImage} alt="profileImage" className="profileImage"/>
+            </div>
+            <div className='col info'>
+              <div className='row'>
+                <h3>Hey There, My Name is</h3>
+              </div>
+              <div className='row'>
+                <h1>Tan Jun Hong</h1> 
+              </div> 
+              <div className='row'>
+                <p>Penultimate NTU Double Major in Mathematical and Computer Science<br/>
+                Nanyang Scholar</p>
+              </div>
+            </div>
+          </div>
+          <br></br>
+          <div className='row'>
+            <h3>More About Me!</h3>
+            <p>I am an avid gamer and traveller in my free time and coder in my not so free time. I like to explore new technology and find new ideas to
+              impement to solve problems in my daily life.
+            </p>
+          </div>
+        </div>
       </section>
       <section ref={experience} className="experience" id='experience'>
-        Experience
+        <div className='container'>
+          <div className='row'>
+            <h3>Experience</h3>
+          </div>
+          <div className='row'>
+            <Timeline/>
+          </div>
+        </div>
       </section>
-      <div>{showScrollTopButton && <div onClick={() => scrollToSection(elementToScroll?skills:experience)} className='down-arrow'></div>}
+      <section ref={skills} className="skills" id='skills'>
+        <div className='container'>
+            <div className='row'>
+              <h3>Skills</h3>
+            </div>
+            <div className='row'>
+              
+            </div>
+        </div>
+      </section>
+      <div>{showScrollTopButton && <div onClick={() => scrollToSection(elementToScroll?experience:skills)} className='down-arrow'></div>}
             {!showScrollTopButton && <div onClick={() => scrollTop()} className='up-arrow'></div>}
         </div>
     </div>

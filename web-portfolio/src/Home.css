@@ -63,13 +63,21 @@
   }
 
   .aboutMe{
-    height:calc(100vh - 90px);
+    height:calc(100vh - 70px);
+    .info{
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        padding-left: 40px;
+        justify-content: center;
+    }
   }
 
   .skills{
-    height:calc(100vh - 90px);
+    height:calc(100vh - 70px);
   }
 
   .experience{
-    height:calc(100vh - 90px);
+    height:calc(100vh - 70px);
   }
+
