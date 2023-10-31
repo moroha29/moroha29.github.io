@@ -75,6 +75,7 @@ export default function Home() {
           <div className='row'>
             <h3>Experience</h3>
           </div>
+          <br></br>
           <div className='row'>
             <Timeline/>
           </div>
