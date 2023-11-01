@@ -8,15 +8,6 @@ export default function TopBar() {
             <Link className="MenuItem" to="/">Home</Link>
             <Link className="MenuItem" to="/projects">Projects</Link>
             <Link className="MenuItem" to="/updates">Updates</Link>
-            {/* <div className="MenuIcon">
-                <logo></logo>
-            </div>
-            <div className="MenuIcon">
-                <logo></logo>
-            </div>
-            <div className="MenuIcon">
-                <logo></logo>
-            </div> */}
         </div>
     </div>
   );

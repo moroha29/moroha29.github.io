@@ -1,0 +1,13 @@
+.skillItems li:before{
+    content: "\25b8";
+    color: pink;
+    position: relative;
+    left: 0;
+}
+
+.skillItems{
+    list-style-type: none;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+}

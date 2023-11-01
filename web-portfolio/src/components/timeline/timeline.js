@@ -6,14 +6,14 @@ export default function Timeline() {
     <div class="timeline">
         <div class="container1 left">
         <div class="content1">
-            <h2>2017</h2>
-            <p>Lorem ipsum..</p>
+            <h3>Solderfield Pte. Ltd</h3>
+            <p><i>May 2023 - Dec 2023</i></p>
         </div>
         </div>
         <div class="container1 right">
         <div class="content1">
-            <h2>2016</h2>
-            <p>Lorem ipsum..</p>
+            <h3>DiscoverMarket Asia Pte. Ltd</h3>
+            <p><i>Jan 2024 - May 2024</i></p>
         </div>
         </div>
     </div>

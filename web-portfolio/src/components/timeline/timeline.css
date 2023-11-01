@@ -31,7 +31,7 @@
     position: absolute;
     width: 25px;
     height: 25px;
-    right: -17px;
+    right: -13px;
     background-color: white;
     border: 4px solid #FF9F55;
     top: 15px;
@@ -68,19 +68,19 @@
     width: 0;
     z-index: 1;
     left: 30px;
-    border: medium solid white;
+    border: medium solid #FF9F55;
+    border-color: transparent #FF9F55 transparent transparent ;
     border-width: 10px 10px 10px 0;
-    border-color: transparent white transparent transparent;
   }
   
 
   .right::after {
-    left: -16px;
+    left: -13px;
   }
 
   .content1 {
     padding: 20px 30px;
-    background-color: white;
+    background-color: aliceblue;
     position: relative;
     border-radius: 6px;
     border-color: black;

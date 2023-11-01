@@ -1,7 +1,12 @@
 import profileImage from './assets/profilepicture.png';
 import './Home.css';
 import Timeline from './components/timeline/timeline';
+import Skills from './components/skills/skills';
 import { useRef,useEffect,useState } from "react";
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faGithub,faLinkedin } from '@fortawesome/free-brands-svg-icons';
+import { faEnvelope, faFile } from '@fortawesome/free-regular-svg-icons';
+import Pdf from './assets/tanjunhong_resume.pdf';
 
 export default function Home() {
     const aboutMe = useRef(null);
@@ -56,8 +61,25 @@ export default function Home() {
                 <h1>Tan Jun Hong</h1> 
               </div> 
               <div className='row'>
-                <p>Penultimate NTU Double Major in Mathematical and Computer Science<br/>
-                Nanyang Scholar</p>
+                <i><p>Penultimate NTU Double Major in Mathematical and Computer Science<br/>
+                Nanyang Scholar</p></i>
+              </div>
+              <div className='row icons'>
+                <a className='iconLinks' href='https://www.linkedin.com/in/jun-hong-tan-929b32249/' 
+                target="_blank" rel="noreferrer noopener" title='Github Link'>
+                  <FontAwesomeIcon className='col-md-auto fa-lg' icon={faGithub} />
+                </a>
+                <a className='iconLinks' href='https://github.com/moroha29' 
+                target="_blank" rel="noreferrer noopener" title='Linkedin Link'>
+                  <FontAwesomeIcon className='col-md-auto fa-lg' icon={faLinkedin} />
+                </a>
+                <a className='iconLinks' href='mailto:junhong.tan@gmail.com' title='Email me at'>
+                  <FontAwesomeIcon className='col-md-auto fa-lg' icon={faEnvelope} />
+                </a>
+                <a className='iconLinks' href={Pdf} target="_blank" 
+                  rel="noreferrer noopener" title='Open my resume'>
+                  <FontAwesomeIcon className='col-md-auto fa-lg' icon={faFile} />
+                </a>
               </div>
             </div>
           </div>
@@ -87,13 +109,16 @@ export default function Home() {
               <h3>Skills</h3>
             </div>
             <div className='row'>
-              
+              <Skills/>
             </div>
         </div>
       </section>
-      <div>{showScrollTopButton && <div onClick={() => scrollToSection(elementToScroll?experience:skills)} className='down-arrow'></div>}
-            {!showScrollTopButton && <div onClick={() => scrollTop()} className='up-arrow'></div>}
-        </div>
+      <div>
+        {showScrollTopButton && <div onClick={() => scrollToSection(elementToScroll?experience:skills)} className='down-arrow'></div>}
+        {!showScrollTopButton && <div onClick={() => scrollTop()} className='up-arrow'></div>}
+      </div>
+      <script src="https://kit.fontawesome.com/5821cb0a90.js" crossorigin="anonymous"></script>
     </div>
+    
   );
 }
