@@ -5,7 +5,7 @@ import Skills from './components/skills/skills';
 import { useRef,useEffect,useState } from "react";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGithub,faLinkedin } from '@fortawesome/free-brands-svg-icons';
-import { faEnvelope, faFile } from '@fortawesome/free-regular-svg-icons';
+import { faEnvelope, faFilePdf } from '@fortawesome/free-regular-svg-icons';
 import Pdf from './assets/tanjunhong_resume.pdf';
 
 export default function Home() {
@@ -15,26 +15,34 @@ export default function Home() {
     const [elementToScroll, setElementToScroll] = useState(true);
     const [showScrollTopButton, setShowScrollTopButton] = useState(true);
     
-
-    useEffect(() => {
-      window.addEventListener("scroll", () => {
-        if (window.scrollY < window.innerHeight-90) {
-          setShowScrollTopButton(true)
+    const getScroll=async (event)=>{
+        var aboutMeElement = document.querySelector(".aboutMe").offsetHeight;
+        var experienceElement = document.querySelector(".experience").offsetHeight;
+        if (window.scrollY < aboutMeElement) {
+          setShowScrollTopButton(true);
           setElementToScroll(true);
-        } else if (window.scrollY < window.innerHeight*2-90*2) {
-          setShowScrollTopButton(true)
+        } else if (window.scrollY < aboutMeElement+experienceElement) {
+          setShowScrollTopButton(true);
           setElementToScroll(false);
         } else{
           setShowScrollTopButton(false)
         }
-      });
+        event.stopPropagation();
+    }
+
+    useEffect(() => {
+      document.addEventListener("scroll",getScroll);
+      return ()=>document.removeEventListener('scroll', getScroll);
      }, []);
 
+
     const scrollToSection = (elementRef) => {
-      window.scrollTo({
-        top: elementRef.current.offsetTop,
-        behavior: "smooth",
-      });
+      if(elementRef){
+        window.scrollTo({
+          top: elementRef.current.offsetTop,
+          behavior: "smooth",
+        });
+      }
     };
 
     const scrollTop = () => {
@@ -78,7 +86,7 @@ export default function Home() {
                 </a>
                 <a className='iconLinks' href={Pdf} target="_blank" 
                   rel="noreferrer noopener" title='Open my resume'>
-                  <FontAwesomeIcon className='col-md-auto fa-lg' icon={faFile} />
+                  <FontAwesomeIcon className='col-md-auto fa-lg' icon={faFilePdf} />
                 </a>
               </div>
             </div>
@@ -105,12 +113,7 @@ export default function Home() {
       </section>
       <section ref={skills} className="skills" id='skills'>
         <div className='container'>
-            <div className='row'>
-              <h3>Skills</h3>
-            </div>
-            <div className='row'>
-              <Skills/>
-            </div>
+          <Skills/>
         </div>
       </section>
       <div>

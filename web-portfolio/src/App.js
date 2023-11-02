@@ -1,12 +1,22 @@
 import './App.css';
 import TopBar from './topbar';
-import { Routes,Route } from "react-router-dom";
+import { Routes,Route,useLocation } from "react-router-dom";
 import Projects from './Projects';
 import Home from './Home';
 import Updates from './Updates';
+import { useEffect } from 'react';
 
+const titles = {
+  '/': 'About Me',
+  '/projects': 'Projects',
+  '/updates': 'Updates on Projects'
+}
 
 function App() {
+  const location = useLocation()
+  useEffect(() => {(document.title = titles[location.pathname] ?? 'Hello World')},
+    [location]
+  )
   return (
     <div>
       <TopBar/>
