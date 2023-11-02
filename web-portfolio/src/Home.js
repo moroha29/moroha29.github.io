@@ -120,7 +120,6 @@ export default function Home() {
         {showScrollTopButton && <div onClick={() => scrollToSection(elementToScroll?experience:skills)} className='down-arrow'></div>}
         {!showScrollTopButton && <div onClick={() => scrollTop()} className='up-arrow'></div>}
       </div>
-      <script src="https://kit.fontawesome.com/5821cb0a90.js" crossorigin="anonymous"></script>
     </div>
     
   );

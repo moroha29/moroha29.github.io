@@ -1,23 +1,38 @@
 import './App.css';
-import logo from './logo.svg';
+import './Projects.css'
+import DiscordBot from './components/projects/discord-bot';
+import PortfolioWebsite from './components/projects/portfolio-website';
+import SideMenu from './components/side-menu/side-menu';
+
 
 export default function Projects() {
+
+  const projects= [
+    {
+      name: "portfolioWebsite",
+      project: PortfolioWebsite,
+    },
+    {
+      name: "discordBot",
+      project: DiscordBot,
+    },
+  ];
+
   return (
     <div>
-     <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-    </header> 
+       <div className='row container projects'>
+          <div className='col-2'>
+            <SideMenu/>
+          </div>
+          <div className='col-10'>
+            {projects.map((item)=>{
+              return(
+              <div key={item.name} className='row project' id={item.name}>
+                <item.project/>
+              </div>)
+            })}
+          </div>
+       </div>
     </div>
   );
 }
