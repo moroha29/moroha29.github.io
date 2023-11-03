@@ -1,13 +1,18 @@
 import './side-menu.css';
 
-export default function SideMenu() {
-
+export default function SideMenu(props) {
+    const projects=props.projects;
     return (
       <div className='sideMenu'>
-        <div className="sidenav">
-          <div id='portfolioWebsiteButton'>Portfolio Website</div>
-          <div id='discordBotButton'>Discord Bot</div>
+        <div className="sideNav">
+            {projects.map((item)=>{
+              return(
+                <a className='sideMenuButton' key={item.name} href={'#'+item.name}>
+                  {item.displayName}
+                </a>)
+            })}
         </div>
       </div>
     );
   }
+  

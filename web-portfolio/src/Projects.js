@@ -10,10 +10,12 @@ export default function Projects() {
   const projects= [
     {
       name: "portfolioWebsite",
+      displayName: "Portfolio Website",
       project: PortfolioWebsite,
     },
     {
       name: "discordBot",
+      displayName: "Discord Bot",
       project: DiscordBot,
     },
   ];
@@ -22,7 +24,7 @@ export default function Projects() {
     <div>
        <div className='row container projects'>
           <div className='col-2'>
-            <SideMenu/>
+            <SideMenu projects={projects}/>
           </div>
           <div className='col-10'>
             {projects.map((item)=>{

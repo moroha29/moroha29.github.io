@@ -19,7 +19,9 @@ function App() {
   )
   return (
     <div>
-      <TopBar/>
+      <div className='top'>
+        <TopBar/>
+      </div>
       <div className="body">
         <Routes>
           <Route path="/" element={<Home />} />
