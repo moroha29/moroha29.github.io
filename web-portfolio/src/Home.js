@@ -39,7 +39,7 @@ export default function Home() {
     const scrollToSection = (elementRef) => {
       if(elementRef){
         window.scrollTo({
-          top: elementRef.current.offsetTop,
+          top: elementRef.current.offsetTop-70,
           behavior: "smooth",
         });
       }

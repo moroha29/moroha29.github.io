@@ -3,9 +3,13 @@
 # Website in Construction (Progress)
 
 - Create Router for Menu (Done)
-- Projects Page
-- Updates Page
-- Main Page (About Me)
+- Projects Page 
+- Updates Page 
+- Main Page (About Me) (Done)
+- Make a main design with css
+- Make light and dark mode
+- Make it mobile compatible
+- Create different themes that switches by a button
 
 # Getting Started with Create React App
 
