@@ -7,7 +7,7 @@ export default function SideMenu(props) {
         <div className="sideNav">
             {projects.map((item)=>{
               return(
-                <a className='sideMenuButton' key={item.name} href={'#'+item.name}>
+                <a className='sideMenuButton ripple' key={item.name} href={'#'+item.name}>
                   {item.displayName}
                 </a>)
             })}

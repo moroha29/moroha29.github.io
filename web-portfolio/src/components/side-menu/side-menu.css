@@ -21,6 +21,20 @@
     flex-direction: column;
 }
 
+  /* Ripple effect */
+  .ripple {
+    background-position: center;
+    transition: background 0.8s;
+  }
+  .ripple:hover {
+    background: grey radial-gradient(circle, transparent 1%, grey 1%) center/15000%;
+  }
+  .ripple:active {
+    background-color: #6eb9f7;
+    background-size: 100%;
+    transition: background 0s;
+  }
+
 .sideMenuButton{
     float: left;
     display: block;
