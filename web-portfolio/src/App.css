@@ -2,6 +2,11 @@
   scroll-margin-top: 70px;
 }
 
+:root{
+  --color-button: #f3abb5;
+  --color-text:black;
+}
+
 .App {
   text-align: center;
 }
