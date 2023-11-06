@@ -3,7 +3,7 @@
 }
 
 .projects{
-    width:900px;
+    max-width:var(--body-size);
 }
 
 .projectContent{

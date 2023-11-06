@@ -5,6 +5,7 @@
 :root{
   --color-button: #f3abb5;
   --color-text:black;
+  --body-size:1200px;
 }
 
 .App {
@@ -95,7 +96,7 @@
 }
 
 .content{
-  width:900px;
+  max-width:var(--body-size);
   display:flex;
   flex-direction: column;
 }

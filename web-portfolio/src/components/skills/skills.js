@@ -2,10 +2,8 @@ import './skills.css'
 
 export default function Skills() {
   return (
-    <div className='skillItems'>
-        <div className='row'>
-            <h3>Skills</h3>
-        </div>
+    <div className='skillItems container'>
+        <h3 class='skillHeaders'>Skills</h3>
         <div className='row'>
             <li className='col-3'>TypeScript</li>
             <li className='col-3'>JavaScript</li>
@@ -18,10 +16,8 @@ export default function Skills() {
             <li className='col-3'>HTML</li>
             <li className='col-3'>Git and Github</li>
         </div>
-        <br></br>
-        <div className='row'>
-            <h3>Relevant Modules</h3>
-        </div>
+
+        <h3 class='moduleHeaders'>Relevant Modules</h3>
         <div className='row'>
             <li className='col-3'>Module</li>
             <li className='col-3'>Module</li>

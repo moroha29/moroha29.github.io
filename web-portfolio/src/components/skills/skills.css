@@ -11,3 +11,12 @@
     flex-direction: row;
     flex-wrap: wrap;
 }
+
+.skillHeaders{
+    width:100%;
+}
+
+.moduleHeaders{
+    margin-top: 40px;
+    width:100%;
+}

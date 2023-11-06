@@ -4,7 +4,7 @@
   
   .timeline {
     position: relative;
-    width:900px;
+    max-width:var(--body-size);
     margin: 0 auto;
   }
 
