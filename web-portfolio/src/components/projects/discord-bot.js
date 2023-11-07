@@ -2,7 +2,7 @@ import Tags from "../tags/tag";
 
 export default function DiscordBot() {
     return (
-      <div class='discordBot'>
+      <div className='discordBot'>
         <h1>Discord Bot</h1>
         <i>The All in One bot</i>
         <h3>Inspiration</h3>

@@ -51,3 +51,28 @@
     background-color: #555;
     color: white;
 }
+
+.dropdown-container{
+  display:none;
+  background-color: #262626;
+  padding-left: 8px;
+}
+
+.fa-caret-down {
+  float: right;
+}
+
+.megaMenuIcon{
+  display: flex;
+  align-items: center;
+}
+
+.megaMenuIcon:hover{
+  background-color: #555;
+  cursor: pointer;
+}
+
+.active {
+  background-color: green;
+  color: white;
+}
