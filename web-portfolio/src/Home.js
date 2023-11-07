@@ -104,6 +104,7 @@ export default function Home() {
         <div className='container'>
           <div className='row'>
             <h3>Experience</h3>
+            <i>Hover for more info!</i>
           </div>
           <br></br>
           <div className='row'>
