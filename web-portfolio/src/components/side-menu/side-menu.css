@@ -54,8 +54,9 @@
 
 .dropdown-container{
   display:none;
-  background-color: #262626;
+  background-color: #ffffff;
   padding-left: 8px;
+  flex-direction: column;
 }
 
 .fa-caret-down {
@@ -73,6 +74,6 @@
 }
 
 .active {
-  background-color: green;
+  background-color: #555;
   color: white;
 }
