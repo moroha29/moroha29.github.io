@@ -5,15 +5,12 @@ import { useEffect } from 'react';
 
 export default function SideMenu(props){
     const projects=props.projects;
-    const subprojects=props.subprojects;
-    var dropdown = document.getElementsByClassName("megaMenuIcon");
-    var i;
 
     function toggleMenu(){
       this.previousElementSibling.classList.toggle("active");
       this.classList.toggle("active");
       var dropdownContent = this.nextElementSibling;
-      if (dropdownContent.style.display == "none") {
+      if (dropdownContent.style.display === "none") {
         dropdownContent.style.display = "block";
       } else {
         dropdownContent.style.display = "none";
@@ -21,12 +18,15 @@ export default function SideMenu(props){
     }
 
     useEffect(() => {
+      var i;
+      var dropdown = document.getElementsByClassName("megaMenuIcon");
       for (i = 0; i < dropdown.length; i++) {
         dropdown[i].addEventListener("click", toggleMenu);
       }
       return () =>{
-        for (i = 0; i < dropdown.length; i++) {
-          dropdown[i].removeEventListener("click", toggleMenu)
+        var j;
+        for (j = 0; j < dropdown.length; j++) {
+          dropdown[j].removeEventListener("click", toggleMenu)
         }
       }
       },[]);
@@ -44,9 +44,14 @@ export default function SideMenu(props){
                     <FontAwesomeIcon className='' icon={faCaretSquareDown} />
                   </div>
                   <div className="dropdown-container" style={{display:'none'}}>
-                    <a className='col-12' href="#">Link 1</a>
-                    <a className='col-12' href="#">Link 2</a>
-                    <a className='col-12' href="#">Link 3</a>
+                    {item.sections.map((submenu)=>{ return(
+                      <li><a className={`${submenu.header ? "subMenuHeader" : ""}`} 
+                      href={'#'+submenu.name} >
+                      {submenu.displayName}
+                    </a></li>
+                    )
+                    })
+                    }
                   </div>
                 </div>
               )

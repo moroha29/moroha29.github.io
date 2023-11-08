@@ -7,7 +7,7 @@ export default function PortfolioWebsite() {
         <p> Developed from scratch from create react app. I used this as a way to learn react as I had mainly been using Angular.
           By experimenting with features that react has compared to angular and finding ways around things angular has react doesn't.
         </p>
-        <h2>
+        <h2 id="darkLightMode">
           Dark and Light Mode
         </h2>
         <p>
@@ -15,7 +15,7 @@ export default function PortfolioWebsite() {
           The default is currently set to background white where by toggling the switch user can switch
           between Dark and Light mode.
         </p>
-        <h2>
+        <h2 id="templateMode">
           Template shifting
         </h2>
         <p>

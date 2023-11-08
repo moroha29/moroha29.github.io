@@ -12,11 +12,35 @@ export default function Projects() {
       name: "portfolioWebsite",
       displayName: "Portfolio Website",
       project: PortfolioWebsite,
+      sections: [
+        {
+          displayName:"Dark and Light Mode",
+          name: "darkLightMode",
+          header: true
+        },
+        {
+          displayName:"Template shifting",
+          name: "templateMode",
+          header: true
+        }
+    ],
     },
     {
       name: "discordBot",
       displayName: "Discord Bot",
       project: DiscordBot,
+      sections: [
+        {
+          displayName:"Osu Bot Features",
+          name: "osuBotFeatures",
+          header: true
+        },
+        {
+          displayName:"Web Scraper",
+          name: "webScraper",
+          header: false
+        }
+    ],
     },
   ];
 

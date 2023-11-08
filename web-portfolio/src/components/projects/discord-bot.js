@@ -10,10 +10,10 @@ export default function DiscordBot() {
           Started off as a just for fun bot, it is now a bot where i start to test functions
           for experiemental features which I feel can help people or myself in the future
         </p>
-        <h2>Osu Bot Features</h2>
+        <h2 id='osuBotFeatures'>Osu Bot Features</h2>
         <i>Commands made for OSU!</i>
         <br></br><br></br>
-        <h4>Web Scraper</h4>
+        <h4 id="webScraper">Web Scraper</h4>
         <p>
           This searches the multiplayer link by scraping the html and getting the JSON object, parsing it
           before and checking if the content is what we are searching for if not it will increment or 

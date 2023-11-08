@@ -59,6 +59,10 @@
   flex-direction: column;
 }
 
+.dropdown-container li{
+  list-style: none;
+}
+
 .fa-caret-down {
   float: right;
 }
