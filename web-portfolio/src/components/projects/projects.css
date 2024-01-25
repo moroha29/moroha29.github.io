@@ -1,0 +1,13 @@
+.image-middle{
+    max-height: 40vh;
+    max-width: 20vw;
+    min-height:500px;
+    min-width: 500px;
+    padding: 10px;
+    position:relative;
+}
+
+.image-caption{
+    font-weight: 500;
+    padding: 10px;
+}

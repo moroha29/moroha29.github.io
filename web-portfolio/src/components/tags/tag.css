@@ -1,13 +1,12 @@
 .skill-bubble{
-    font-size: 80%;
+    font-size: 100%;
     background-color: var(--color-button);
     color: var(--color-text);
-    padding: 8px 12px;
+    padding: 8px 12px 10px;
     border: 1px solid var(--color-button);
     border-radius: 24px;
     list-style: none;
-    padding: 0;
-    margin: 0;
+    margin-top: 10px;
     display: flex;
     justify-content: center;
 }

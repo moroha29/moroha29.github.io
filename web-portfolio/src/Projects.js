@@ -3,6 +3,7 @@ import './Projects.css'
 import DiscordBot from './components/projects/discord-bot';
 import PortfolioWebsite from './components/projects/portfolio-website';
 import SideMenu from './components/side-menu/side-menu';
+import PaisehBot from './components/projects/paiseh-bot';
 
 
 export default function Projects() {
@@ -42,11 +43,23 @@ export default function Projects() {
         }
     ],
     },
+    {
+      name: "paisehBot",
+      displayName: "Dont Paiseh",
+      project: PaisehBot,
+      sections: [
+        {
+          displayName:"Machine Learning",
+          name: "machineLearning",
+          header: true
+        },
+    ],
+    },
   ];
 
   return (
       <div className='container projects'>
-          <SideMenu projects={projects}/>
+          <SideMenu className="col-2" projects={projects}/>
           <div className='projectContent'>
             {projects.map((item)=>{
               return(

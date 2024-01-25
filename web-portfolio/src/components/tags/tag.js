@@ -7,7 +7,7 @@ export default function Tags(props) {
         <div className='row'>
             {tagNames.map(name=>{
                 return (
-                    <div className='skill-bubble col-3'>
+                    <div className='skill-bubble col-6 col-lg-3'>
                         {name}
                     </div>
                 )
