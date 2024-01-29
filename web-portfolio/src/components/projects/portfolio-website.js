@@ -4,6 +4,7 @@ export default function PortfolioWebsite() {
     return (
       <div className='portfolio'>
         <h1>Portfolio Website</h1>
+        <p className="mt-1">Status: Work In Progress</p>
         <p> Developed from scratch from create react app. I used this as a way to learn react as I had mainly been using Angular.
           By experimenting with features that react has compared to angular and finding ways around things angular has react doesn't.
           Also a way to challenge myself without the use of conventional library to get more familiar with JavaScript.
@@ -14,15 +15,15 @@ export default function PortfolioWebsite() {
         <p>
           Introducing a switch to switch between light mode and dark mode based on your preference!
           The default is currently set to background white where by toggling the switch user can switch
-          between Dark and Light mode.
+          between Dark and Light mode. The coloring is still not completed yet.
         </p>
-        <h2 id="templateMode">
+        {/* <h2 id="templateMode">
           Template shifting
         </h2>
         <p>
           With a buffet of different templates to pick from and try to feature some of the web ideas
           I have and would like to implement and test on this site.
-        </p>
+        </p> */}
       </div>
     );
   }

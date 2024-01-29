@@ -5,6 +5,7 @@ export default function DiscordBot() {
       <div className='discordBot'>
         <h1>Discord Bot</h1>
         <i>The All in One bot</i>
+        <p className="mt-1">Status:Work in progress</p>
         <h3>Inspiration</h3>
         <p>
           Started off as a just for fun bot, it is now a bot where i start to test functions

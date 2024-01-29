@@ -10,7 +10,10 @@ export default function Timeline() {
               <p><i>Full Stack Developer</i></p>
               <p><i>Jan 2024 - May 2024</i></p>
               <div className='hoverContent'>
-                <p>TestTestTest</p>
+                <ul>
+                  <li>Create a chatbot with the use of Streamlit and OpenAi.</li>
+                  <li>Recommend changes in the model that is currently being tested and pushed out.</li>
+                </ul>
               </div>
           </div>
         </div>
@@ -20,7 +23,13 @@ export default function Timeline() {
               <p><i>Java Developer</i></p>
               <p><i>May 2023 - Dec 2023</i></p>
               <div className='hoverContent'>
-                <p>TestTestTest</p>
+                <ul>
+                  <li>Developed Frontend solutions for webapp with the use of Angular.</li>
+                  <li>Wrote Unit Testing for products utilizing Jasmine and Karma.</li>
+                  <li>Make screens of the product look more beautiful with the use of HTML, CSS and PrimeNG.</li>
+                  <li>Bug Fixes for old products with high urgency issues.</li>
+                  <li>Documentation writing for all the work I have done to ensure that future developers are able to take over with ease.</li>
+                </ul>
               </div>
           </div>
         </div>

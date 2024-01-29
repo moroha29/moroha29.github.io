@@ -83,8 +83,10 @@
 }
 
 .profileImage{
-  height:180px;
-  width:180px;
+  /* height:180px;
+  width:100px; */
+  padding-top: 10px;
+  align-content: center;
 }
 
 .switch {

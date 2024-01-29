@@ -63,7 +63,7 @@
   }
 
   .aboutMe{
-    height:calc(100vh - 70px);
+    padding: 10px;
     .info{
         display: flex;
         flex-direction: column;
@@ -74,11 +74,11 @@
   }
 
   .skills{
-    height:calc(100vh - 70px);
+    padding: 10px;
   }
 
   .experience{
-    height:calc(100vh - 70px);
+    padding: 10px;
   }
 
   .icons{

@@ -7,6 +7,7 @@ export default function PaisehBot() {
       <div className='paisehBot'>
         <h1>Paiseh Bot</h1>
         <i>The Absolutely Useless bot made for fun</i>
+        <p className="mt-1">Status: Completed</p>
         <br></br>
         <h3>Details</h3>
         <p>

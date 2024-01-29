@@ -58,15 +58,15 @@ export default function Home() {
       <section ref={aboutMe} className="aboutMe" id='aboutMe'>
         <div className='container'>
           <div className='row'>
-            <div className='col-md-auto'>
-              <img src={profileImage} alt="profileImage" className="profileImage"/>
+            <div className='col-md-auto d-flex justify-content-center mb-3'>
+              <img src={profileImage} alt="profileImage" className="profileImage "/>
             </div>
             <div className='col info'>
               <div className='row'>
                 <h3>Hey There, My Name is</h3>
               </div>
               <div className='row'>
-                <h1>Tan Jun Hong</h1> 
+                <h1>Tan Jun Hong</h1>
               </div> 
               <div className='row'>
                 <i><p>Penultimate NTU Double Major in Mathematical and Computer Science<br/>
@@ -118,8 +118,8 @@ export default function Home() {
         </div>
       </section>
       <div>
-        {showScrollTopButton && <div onClick={() => scrollToSection(elementToScroll?experience:skills)} className='down-arrow'></div>}
-        {!showScrollTopButton && <div onClick={() => scrollTop()} className='up-arrow'></div>}
+        {/* {showScrollTopButton && <div onClick={() => scrollToSection(elementToScroll?experience:skills)} className='down-arrow'></div>}
+        {!showScrollTopButton && <div onClick={() => scrollTop()} className='up-arrow'></div>} */}
       </div>
     </div>
     
