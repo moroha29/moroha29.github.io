@@ -36,7 +36,7 @@ export default function SideMenu(props){
         <div className="sideNav container">
             {projects.map((item)=>{
               return(
-                <div className='row' key={item.name}>
+                <div className='row sideItems' key={item.name}>
                   <a className='col-md-9 sideMenuButton ripple' href={'#'+item.name}>
                     {item.displayName} 
                   </a>
@@ -45,7 +45,7 @@ export default function SideMenu(props){
                   </div>
                   <div className="dropdown-container" style={{display:'none'}}>
                     {item.sections.map((submenu)=>{ return(
-                      <li><a className={`${submenu.header ? "subMenuHeader" : ""}`} 
+                      <li className='subMenu'><a className={`${submenu.header ? "subMenuHeader subMenuItem" : "subMenuItem"} `} 
                       href={'#'+submenu.name} >
                       {submenu.displayName}
                     </a></li>

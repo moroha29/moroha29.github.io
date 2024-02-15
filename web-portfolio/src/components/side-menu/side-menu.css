@@ -15,6 +15,17 @@
       ) 1 100%;
   }
 
+.subMenuItem{
+  &:link{
+    text-decoration:none;
+  }
+  margin-bottom: 1px;
+}
+
+.subMenu{
+  padding-bottom: 1px;
+}
+
 
 .sideNav{
     display:flex;
@@ -72,7 +83,7 @@
   align-items: center;
 }
 
-.megaMenuIcon:hover{
+.sideItems:hover{
   background-color: #555;
   cursor: pointer;
 }

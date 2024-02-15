@@ -32,6 +32,7 @@
   padding-top:70px;
   overflow-y: hidden;
   background-color: var(--background);
+  padding-bottom: 10%;
 }
 
 .TopBar{

@@ -2,7 +2,7 @@ import profileImage from './assets/profilepicture.png';
 import './Home.css';
 import Timeline from './components/timeline/timeline';
 import Skills from './components/skills/skills';
-import { useRef,useEffect,useState } from "react";
+import { useRef } from "react";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGithub,faLinkedin } from '@fortawesome/free-brands-svg-icons';
 import { faEnvelope, faFilePdf } from '@fortawesome/free-regular-svg-icons';
@@ -12,45 +12,45 @@ export default function Home() {
     const aboutMe = useRef(null);
     const skills = useRef(null);
     const experience = useRef(null);
-    const [elementToScroll, setElementToScroll] = useState(true);
-    const [showScrollTopButton, setShowScrollTopButton] = useState(true);
+    // const [elementToScroll, setElementToScroll] = useState(true);
+    // const [showScrollTopButton, setShowScrollTopButton] = useState(true);
     
-    const getScroll=async (event)=>{
-        var aboutMeElement = document.querySelector(".aboutMe").offsetHeight;
-        var experienceElement = document.querySelector(".experience").offsetHeight;
-        if (window.scrollY < aboutMeElement) {
-          setShowScrollTopButton(true);
-          setElementToScroll(true);
-        } else if (window.scrollY < aboutMeElement+experienceElement) {
-          setShowScrollTopButton(true);
-          setElementToScroll(false);
-        } else{
-          setShowScrollTopButton(false)
-        }
-        event.stopPropagation();
-    }
+    // const getScroll=async (event)=>{
+    //     var aboutMeElement = document.querySelector(".aboutMe").offsetHeight;
+    //     var experienceElement = document.querySelector(".experience").offsetHeight;
+    //     if (window.scrollY < aboutMeElement) {
+    //       setShowScrollTopButton(true);
+    //       setElementToScroll(true);
+    //     } else if (window.scrollY < aboutMeElement+experienceElement) {
+    //       setShowScrollTopButton(true);
+    //       setElementToScroll(false);
+    //     } else{
+    //       setShowScrollTopButton(false)
+    //     }
+    //     event.stopPropagation();
+    // }
 
-    useEffect(() => {
-      document.addEventListener("scroll",getScroll);
-      return ()=>document.removeEventListener('scroll', getScroll);
-     }, []);
+    // useEffect(() => {
+    //   document.addEventListener("scroll",getScroll);
+    //   return ()=>document.removeEventListener('scroll', getScroll);
+    //  }, []);
 
 
-    const scrollToSection = (elementRef) => {
-      if(elementRef){
-        window.scrollTo({
-          top: elementRef.current.offsetTop-70,
-          behavior: "smooth",
-        });
-      }
-    };
+    // const scrollToSection = (elementRef) => {
+    //   if(elementRef){
+    //     window.scrollTo({
+    //       top: elementRef.current.offsetTop-70,
+    //       behavior: "smooth",
+    //     });
+    //   }
+    // };
 
-    const scrollTop = () => {
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
-    };
+    // const scrollTop = () => {
+    //   window.scrollTo({
+    //     top: 0,
+    //     behavior: "smooth",
+    //   });
+    // };
 
     
   return (
@@ -112,7 +112,7 @@ export default function Home() {
           </div>
         </div>
       </section>
-      <section ref={skills} className="skills" id='skills'>
+      <section ref={skills} className="skills mb-20" id='skills'>
         <div className='container'>
           <Skills/>
         </div>
