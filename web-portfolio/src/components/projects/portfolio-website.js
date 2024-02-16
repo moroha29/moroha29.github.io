@@ -5,13 +5,18 @@ export default function PortfolioWebsite() {
       <div className='portfolio'>
         <h1>Portfolio Website</h1>
         <p className="mt-1">Status: Work In Progress</p>
+        <h3>Plans</h3>
+        <p>I plan to slowly develop the site with things and add my projects I have done over time for me to keep track of 
+          what I have done and my progress in learning.
+        </p>
+        <h3>Details</h3>
         <p> Developed from scratch from create react app. I used this as a way to learn react as I had mainly been using Angular.
           By experimenting with features that react has compared to angular and finding ways around things angular has react doesn't.
-          Also a way to challenge myself without the use of conventional library to get more familiar with JavaScript.
+          Also challenging myself by not using conventional UI tools like PrimeNG to get more familiar UI/UX development.
         </p>
-        <h2 id="darkLightMode">
+        <h3 id="darkLightMode">
           Dark and Light Mode
-        </h2>
+        </h3>
         <p>
           Introducing a switch to switch between light mode and dark mode based on your preference!
           The default is currently set to background white where by toggling the switch user can switch

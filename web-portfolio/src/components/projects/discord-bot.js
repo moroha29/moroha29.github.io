@@ -8,7 +8,7 @@ export default function DiscordBot() {
         <p className="mt-1">Status:Work in progress</p>
         <h3>Inspiration</h3>
         <p>
-          Started off as a just for fun bot, it is now a bot where i start to test functions
+          Started off as a just for fun bot to use for the game OSU!, it is now a bot where i start to test functions
           for experiemental features which I feel can help people or myself in the future
         </p>
         <h2 id='osuBotFeatures'>Osu Bot Features</h2>

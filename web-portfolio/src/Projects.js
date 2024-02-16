@@ -58,9 +58,9 @@ export default function Projects() {
   ];
 
   return (
-      <div className='container projects'>
-          <SideMenu className="col-2" projects={projects}/>
-          <div className='projectContent'>
+      <div className='container projects row'>
+          <SideMenu projects={projects}/>
+          <div className='projectContent col-10'>
             {projects.map((item)=>{
               return(
               <div key={item.name} className='row project' id={item.name}>

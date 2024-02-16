@@ -32,31 +32,29 @@ export default function SideMenu(props){
       },[]);
     
     return (
-      <div className='sideMenu'>
-        <div className="sideNav container">
-            {projects.map((item)=>{
-              return(
-                <div className='row sideItems' key={item.name}>
-                  <a className='col-md-9 sideMenuButton ripple' href={'#'+item.name}>
-                    {item.displayName} 
-                  </a>
-                  <div className='col-md-3 megaMenuIcon' >
-                    <FontAwesomeIcon className='' icon={faCaretSquareDown} />
-                  </div>
-                  <div className="dropdown-container" style={{display:'none'}}>
-                    {item.sections.map((submenu)=>{ return(
-                      <li className='subMenu'><a className={`${submenu.header ? "subMenuHeader subMenuItem" : "subMenuItem"} `} 
-                      href={'#'+submenu.name} >
-                      {submenu.displayName}
-                    </a></li>
-                    )
-                    })
-                    }
-                  </div>
+      <div className="sideNav col-2 sideMenu container">
+          {projects.map((item)=>{
+            return(
+              <div className='row sideItems' key={item.name}>
+                <a className='col-9 sideMenuButton ripple' href={'#'+item.name}>
+                  {item.displayName} 
+                </a>
+                <div className='col-3 megaMenuIcon container' >
+                  <FontAwesomeIcon className='' icon={faCaretSquareDown} />
                 </div>
-              )
-            })}
-        </div>
+                <div className="dropdown-container" style={{display:'none'}}>
+                  {item.sections.map((submenu)=>{ return(
+                    <li className='subMenu'><a className={`${submenu.header ? "subMenuHeader subMenuItem" : "subMenuItem"} `} 
+                    href={'#'+submenu.name} >
+                    {submenu.displayName}
+                  </a></li>
+                  )
+                  })
+                  }
+                </div>
+              </div>
+            )
+          })}
       </div>
     );
   }

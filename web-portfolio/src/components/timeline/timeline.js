@@ -11,14 +11,10 @@ export default function Timeline() {
               <p><i>Jan 2024 - May 2024</i></p>
               <div className='hoverContent'>
                 <ul>
-                  <li>Create a chatbot with the use of Streamlit and OpenAi.</li>
-                  <li>Recommend 2 changes in the model that is currently being tested and pushed out.</li>
-                  <li>Utilized cutting edge technologies like OpenAI to combine data science into chatbots and 
-                    open-source libraries like leaflet-geotiff to deal with satellite imagery mapping on maps.
-                  </li>
-                  <li>
-                    Received high praises from superiors on the 4 endproduct demos completed.
-                  </li>
+                  <li>Created an assistant chatbot with the use of Streamlit and OpenAi.</li>
+                  <li>Developed 3 demonstrations for solutions to help price different insurance policies with the use of Machine Learning and Data Science tools 
+                    to display data neatly with stellar acknowledgment from project managers on the end products.</li>
+                  <li>Identified 2 areas for improvement in current products and recommended solutions to solve them.</li>
                 </ul>
               </div>
           </div>
@@ -30,14 +26,12 @@ export default function Timeline() {
               <p><i>May 2023 - Dec 2023</i></p>
               <div className='hoverContent'>
                 <ul>
-                  <li>Developed Frontend solutions for webapp with the use of Angular.</li>
+                  <li>Developed frontend solutions for webapp with the use of Angular.</li>
                   <li>Wrote Unit Testing for products utilizing Jasmine and Karma.</li>
-                  <li>Make screens of the product look more beautiful with the use of HTML, CSS and PrimeNG.</li>
-                  <li>Bug Fixes for old products with high urgency issues.</li>
-                  <li>Documentation writing for all the work I have done to ensure that future developers are able to take over with ease.</li>
-                  <li>Completed boilerplate for frontend for the framework for inquiry and search tables 
-                    used by company that received high recognition with documentation requested and completed.
-                  </li>
+                  <li>Made screens of webapps look visually appealing on both mobile and desktop with the use of HTML, CSS, Bootstrap and PrimeNG.</li>
+                  <li>Bug Fixes for pre-existing projects.</li>
+                  <li>Created a boilerplate for the frontend framework for the company to increase productivity by 50% for future frontend development.</li>
+                  <li>Prepared documentation writing for my projects to facilitate the handover to future developers.</li>
                 </ul>
               </div>
           </div>
