@@ -12,8 +12,10 @@ export default function TopBar() {
   useEffect(() => {
     if(darkMode){
       document.querySelector(':root').style.setProperty('--background', 'grey');
+      document.querySelector(':root').style.setProperty('--color-text', 'white');
     }else{
       document.querySelector(':root').style.setProperty('--background', 'white');
+      document.querySelector(':root').style.setProperty('--color-text', 'black');
     }
    }, [darkMode]);
 
@@ -23,14 +25,15 @@ export default function TopBar() {
         <div className="MenuItems">
             <Link className="MenuItem" to="/">Home</Link>
             <Link className="MenuItem" to="/projects">Projects</Link>
-            {/* <Link className="MenuItem" to="/updates">Updates</Link> */}
-            <label className="switch">
-              <input 
+          <div className="MenuItem SwitchItem">
+            <label className='switch'>
+              <input
               type="checkbox"
               checked={darkMode} 
               onChange={(e) => setdarkMode(e.target.checked)}/>
               <span className="slider round"></span>
             </label>
+          </div>
         </div>
     </div>
   );

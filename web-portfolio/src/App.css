@@ -7,7 +7,13 @@
   --color-text:black;
   --body-size:1200px;
   --background: white;
+  --color: white;
 }
+
+h1,h2,h3,h4,h5,h6,p,li,i{
+  color:var(--color-text);
+}
+
 
 .App {
   text-align: center;
@@ -49,7 +55,6 @@
 
 
 .top{
-  background: white;
   width:100%; 
   position:fixed;
   height:60px;
@@ -60,21 +65,16 @@
 .MenuItems{
   flex-direction: row;
   display: flex;
+  justify-content: space-between;
   position: relative;
   align-items: center;
   z-index: 5;
   width: 900px;
-  justify-content: right;
+  padding-left:10px
 }
 
 .MenuItem{
   width:70px;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  position: relative;
 }
 
 .content{
@@ -94,6 +94,10 @@
   position: relative;
   width: 60px;
   height: 34px;
+}
+
+.SwitchItem{
+  margin-left: auto;
 }
 
 /* Hide default HTML checkbox */
