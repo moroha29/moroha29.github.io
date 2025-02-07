@@ -94,8 +94,8 @@ export default function Home() {
           <br></br>
           <div className='row'>
             <h3>More About Me!</h3>
-            <p>I am an avid gamer and traveller in my free time and coder in my not so free time. I like to explore new technology and find new ideas to
-              impement to solve problems in my daily life.
+            <p>I love creating new software and learning new areas in technology. Currently a penultimate student in National Technological University, 
+              I'm pursuing a degree in Computer and Mathematical Science. I am passionate about discovering new things. Currently pursuing specialization in Machine Learning and Software Engineering.
             </p>
           </div>
         </div>

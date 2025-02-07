@@ -6,6 +6,7 @@
   --color-button: #fdaab5;
   --color-text:black;
   --body-size:1200px;
+  --topbar-size:1100px;
   --background: white;
   --color: white;
 }
@@ -20,7 +21,7 @@ h1,h2,h3,h4,h5,h6,p,li,i{
 }
 
 .App-logo {
-  height: 40vmin;
+  height: 100vmin;
   pointer-events: none;
 }
 
@@ -42,7 +43,6 @@ h1,h2,h3,h4,h5,h6,p,li,i{
 }
 
 .TopBar{
-  width: 100%;
   height: 60px;
   display:flex;
   justify-content: center;
@@ -69,7 +69,7 @@ h1,h2,h3,h4,h5,h6,p,li,i{
   position: relative;
   align-items: center;
   z-index: 5;
-  width: 900px;
+  width:var(--topbar-size);
   padding-left:10px
 }
 
@@ -84,9 +84,8 @@ h1,h2,h3,h4,h5,h6,p,li,i{
 }
 
 .profileImage{
-  /* height:180px;
-  width:100px; */
   padding-top: 10px;
+  border-radius: 50px;
   align-content: center;
 }
 
