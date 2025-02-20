@@ -116,7 +116,7 @@
     display: flex;
     justify-content: center;
     cursor: pointer;
-    background: #FFF;
+    background: var(--background);
     box-shadow: 0 0 6px 0 rgba(#202024, .12);
     transition: all .35s ease;
     
