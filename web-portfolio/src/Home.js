@@ -75,7 +75,7 @@ export default function Home() {
               <div className='row icons'>
                 <a className='iconLinks' href='https://www.linkedin.com/in/jun-hong-tan-929b32249/' 
                 target="_blank" rel="noreferrer noopener" title='Github Link'>
-                  <FontAwesomeIcon className='col-md-auto fa-lg' icon={faGithub} />
+                  <FontAwesomeIcon classN ame='col-md-auto fa-lg' icon={faGithub} />
                 </a>
                 <a className='iconLinks' href='https://github.com/moroha29' 
                 target="_blank" rel="noreferrer noopener" title='Linkedin Link'>
