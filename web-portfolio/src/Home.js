@@ -6,7 +6,7 @@ import { useRef } from "react";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGithub,faLinkedin } from '@fortawesome/free-brands-svg-icons';
 import { faEnvelope, faFilePdf } from '@fortawesome/free-regular-svg-icons';
-import Pdf from './assets/tanjunhong_resume.pdf';
+import Pdf from './assets/Tan_Jun_Hong_Resume.pdf';
 
 export default function Home() {
     const aboutMe = useRef(null);
