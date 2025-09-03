@@ -1,18 +1,18 @@
 {
   "files": {
     "main.css": "/static/css/main.fd36a9f3.css",
-    "main.js": "/static/js/main.711d6f59.js",
+    "main.js": "/static/js/main.43ae195d.js",
     "static/js/787.e8a52378.chunk.js": "/static/js/787.e8a52378.chunk.js",
     "static/media/Tan_Jun_Hong_Resume.pdf": "/static/media/Tan_Jun_Hong_Resume.e54594dc3323f8f03f90.pdf",
     "static/media/paiseh-bot-poll.png": "/static/media/paiseh-bot-poll.5401373f409c0686f4e7.png",
     "static/media/profilepicture.png": "/static/media/profilepicture.fe0e63ef8b096fa93e00.png",
     "index.html": "/index.html",
     "main.fd36a9f3.css.map": "/static/css/main.fd36a9f3.css.map",
-    "main.711d6f59.js.map": "/static/js/main.711d6f59.js.map",
+    "main.43ae195d.js.map": "/static/js/main.43ae195d.js.map",
     "787.e8a52378.chunk.js.map": "/static/js/787.e8a52378.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.fd36a9f3.css",
-    "static/js/main.711d6f59.js"
+    "static/js/main.43ae195d.js"
   ]
 }
