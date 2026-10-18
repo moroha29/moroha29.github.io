@@ -4,9 +4,9 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
  const browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH||undefined});
  try {
  const page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
- const base=path.resolve(__dirname,'../web-portfolio/public/cards');let drafts=[],stock=[],next=1;
+ const base=path.resolve(__dirname,'../web-portfolio/public/card_manager');let drafts=[],stock=[],next=1;
  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABQAAAAeCAIAAACjcKk8AAAAHklEQVR4nGPoWNVBNmIY1TyqeVTzqOZRzaOah7NmAIrvDC0dEI/8AAAAAElFTkSuQmCC','base64');
- await page.route('https://moroha29.github.io/cards/**',async route=>{
+ await page.route('https://moroha29.github.io/card_manager/**',async route=>{
   const name=new URL(route.request().url()).pathname.split('/').pop()||'index.html';
   await route.fulfill({contentType:name.endsWith('.js')?'application/javascript':name.endsWith('.css')?'text/css':'text/html',body:fs.readFileSync(path.join(base,name))});
  });
@@ -28,7 +28,7 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
   }
   assert.notEqual(result,undefined,action);await route.fulfill({headers,contentType:'application/json',body:JSON.stringify(result)});
  });
- await page.goto('https://moroha29.github.io/cards/');await page.locator('#password').fill('test-password');await page.locator('#loginForm button').click();await page.locator('#workspace').waitFor({state:'visible'});
+ await page.goto('https://moroha29.github.io/card_manager/');await page.locator('#password').fill('test-password');await page.locator('#loginForm button').click();await page.locator('#workspace').waitFor({state:'visible'});
  await page.locator('#search').fill('Eevee');await page.locator('#results button').click();
  let row=page.locator('#rows tr').first();await row.locator('input.money').nth(0).fill('100');await row.locator('input.money').nth(1).fill('150');await row.locator('select').focus();
  await row.locator('input[type=file]').nth(0).setInputFiles({name:'front.png',mimeType:'image/png',buffer:png});await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('Photo ready'));

@@ -2,7 +2,7 @@ name: Publish private inventory page
 on:
   push:
     branches: [main]
-    paths: ['web-portfolio/public/cards/**', '.github/workflows/deploy-inventory.yml', 'tests/inventory-browser.cjs']
+    paths: ['web-portfolio/public/card_manager/**', '.github/workflows/deploy-inventory.yml', 'tests/inventory-browser.cjs']
   workflow_dispatch:
 permissions:
   contents: read
@@ -23,9 +23,9 @@ jobs:
       - uses: actions/checkout@v4
         with: {ref: gh-pages, path: published}
       - run: |
-          node --check source/web-portfolio/public/cards/app.js
-          mkdir -p published/cards
-          cp source/web-portfolio/public/cards/* published/cards/
+          node --check source/web-portfolio/public/card_manager/app.js
+          mkdir -p published/card_manager
+          cp source/web-portfolio/public/card_manager/* published/card_manager/
       - name: Test inventory user flow
         run: |
           npm install --prefix "$RUNNER_TEMP/inventory-tests" playwright@1.64.1 --no-audit --no-fund
