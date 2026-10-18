@@ -1,0 +1,38 @@
+name: Publish private inventory page
+on:
+  push:
+    branches: [main]
+    paths: ['web-portfolio/public/cards/**', '.github/workflows/deploy-inventory.yml', 'tests/inventory-browser.cjs']
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {path: source}
+      - uses: actions/checkout@v4
+        with: {ref: gh-pages, path: published}
+      - run: |
+          node --check source/web-portfolio/public/cards/app.js
+          mkdir -p published/cards
+          cp source/web-portfolio/public/cards/* published/cards/
+      - name: Test inventory user flow
+        run: |
+          npm install --prefix "$RUNNER_TEMP/inventory-tests" playwright@1.64.1 --no-audit --no-fund
+          "$RUNNER_TEMP/inventory-tests/node_modules/.bin/playwright" install --with-deps chromium
+          NODE_PATH="$RUNNER_TEMP/inventory-tests/node_modules" INVENTORY_SCREENSHOT="$RUNNER_TEMP/inventory-preview.png" node source/tests/inventory-browser.cjs
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with: {path: published}
+      - uses: actions/deploy-pages@v4
+        id: deployment
