@@ -31,10 +31,12 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
  await page.goto('https://moroha29.github.io/card_manager/');await page.locator('#password').fill('test-password');await page.locator('#loginForm button').click();await page.locator('#workspace').waitFor({state:'visible'});
  await page.locator('#search').fill('Eevee');await page.locator('#results button').click();
  let row=page.locator('#rows tr').first();await row.locator('input.money').nth(0).fill('100');await row.locator('input.money').nth(1).fill('150');await row.locator('select').focus();
- await row.locator('input[type=file]').nth(0).setInputFiles({name:'front.png',mimeType:'image/png',buffer:png});await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('Photo ready'));
- await row.locator('input[type=file]').nth(1).setInputFiles({name:'back.png',mimeType:'image/png',buffer:png});await page.waitForFunction(()=>[...document.querySelectorAll('#rows img')].every(i=>i.src.startsWith('blob:')));
+ await row.locator('summary').click();
+ await row.locator('input[multiple]').setInputFiles(Array.from({length:10},(_,i)=>({name:String(i+1).padStart(2,'0')+'.png',mimeType:'image/png',buffer:png})));
+ await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('10 photos ready'));
+ await row.locator('summary').click();if(process.env.INVENTORY_SCREENSHOT)await page.screenshot({path:process.env.INVENTORY_SCREENSHOT.replace('.png','-photos.png'),fullPage:true});
  await page.locator('#publish').click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('1 listings published'));
- assert.equal(stock.length,1);assert.equal(stock[0].cost,10000);assert.equal(stock[0].price,15000);assert.equal(stock[0].photos.length,2);
+ assert.equal(stock.length,1);assert.equal(stock[0].cost,10000);assert.equal(stock[0].price,15000);assert.equal(stock[0].photos.length,10);
  await page.locator('[data-tab=stock]').click();row=page.locator('#rows tr').first();await row.locator('input.money').nth(1).fill('160');await row.locator('select').focus();await page.locator('#save').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('Saved'));
  assert.equal(stock[0].price,16000);
  await row.locator('input.money').nth(2).fill('170');await row.locator('select').focus();await page.locator('#sell').click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('#status').textContent==='Sales recorded.');
@@ -42,6 +44,10 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
  await page.locator('[data-tab=sold]').click();row=page.locator('#rows tr').first();assert.equal(await row.locator('select').isDisabled(),true);assert.equal(await row.locator('input.money').nth(0).isDisabled(),true);
  await row.locator('input[type=checkbox]').check();await page.locator('#remove').click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('#status').textContent==='Deleted selected rows.');assert.equal(stock.length,0);
  await page.locator('[data-tab=drafts]').click();await page.locator('summary').click();await page.locator('#links').fill('93097\nhttps://snkrdunk.com/apparels/93097');await page.locator('#addLinks').click();await page.waitForFunction(()=>document.querySelectorAll('#rows tr').length===2);
+ await page.locator('#bulkPhotos').setInputFiles(Array.from({length:10},(_,i)=>({name:'1-'+String(i+1).padStart(2,'0')+'.png',mimeType:'image/png',buffer:png})));
+ await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('10 photos matched'));
+ assert.equal(await page.locator('#rows tr').first().locator('summary').textContent(),'10/10 photos');
+ assert.equal(await page.locator('#rows tr').nth(1).locator('summary').textContent(),'0/10 photos');
  await page.setViewportSize({width:390,height:844});assert.equal(await page.locator('#search').isVisible(),true);
  await page.setViewportSize({width:1440,height:1000});
  await page.screenshot({path:process.env.INVENTORY_SCREENSHOT||'inventory-preview.png',fullPage:true});

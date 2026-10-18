@@ -3,6 +3,7 @@
 const $=id=>document.getElementById(id);
 let token='', tab='drafts', drafts=[], stock=[], selected=new Set(), dirty=new Set(), busy=false, bot='jhcardbot', searchSeq=0;
 const photos=new Map();
+const photoLabel=i=>i===0?'Front':i===1?'Back':i<6?'Front corner '+(i-1):'Back corner '+(i-5);
 const key=r=>r.stockId?'stock:'+r.stockId:r.id;
 const shown=()=> (tab==='drafts'?drafts:stock.filter(r=>tab==='sold'?r.sold:!r.sold)).filter(r=>(r.name+' '+r.cardId+' '+(r.stockId||'')).toLowerCase().includes($('filter').value.toLowerCase()));
 const money=c=>(Number(c||0)/100).toFixed(2);
@@ -40,12 +41,26 @@ async function thumb(id,img){
  try{if(!photos.has(id)){const blob=await api('photo',{photo:id},true);photos.set(id,URL.createObjectURL(blob));}img.src=photos.get(id);}
  catch{img.alt='Photo unavailable';}
 }
-function photoCell(r,i){
- const td=el('td'),label=el('label',undefined,'photobox'),img=el('img',undefined,'photo');img.alt=i===0?'Front':'Back';img.src='data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
- const id=(r.photos||[])[i];if(id)thumb(id,img);
- label.append(img,el('span',id?'Change':'Upload'));
+function photoCell(r,i,load=true){
+ const td=el('td'),label=el('label',undefined,'photobox'),img=el('img',undefined,'photo');img.alt=photoLabel(i);img.src='data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
+ const id=(r.photos||[])[i];if(id&&load)thumb(id,img);
+ label.append(img,el('span',(i>1?photoLabel(i)+' · ':'')+(id?'Change':'Upload')));
  if(!r.sold&&!r.consignment){const file=el('input');file.type='file';file.accept='image/jpeg,image/png';file.onchange=()=>{if(file.files[0])task(async()=>{await upload(r,i,file.files[0]);render();status('Photo ready. Save the row to keep it.');});};label.append(file);}
  td.append(label);return td;
+}
+function detailPhotos(r){
+ const td=el('td'),details=el('details');details.className='photoDetails';
+ details.append(el('summary',(r.photos||[]).filter(Boolean).length+'/10 photos'));
+ if(!r.sold){
+  const grid=el('div',undefined,'cornerPhotos');
+  for(let i=2;i<10;i++){const cell=photoCell(r,i,false),box=el('div');box.append(...cell.childNodes);grid.append(box);}details.append(grid);details.ontoggle=()=>{if(details.open)grid.querySelectorAll('img').forEach((img,i)=>{const id=(r.photos||[])[i+2];if(id)thumb(id,img);});};
+  if(!r.consignment){const label=el('label','Upload 10 photos','filebutton'),input=el('input');input.type='file';input.multiple=true;input.accept='image/jpeg,image/png';
+   input.onchange=()=>task(async()=>{const files=[...input.files].sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));if(files.length!==10)throw Error('Choose 10 photos named 01 to 10, in your photo order.');
+    for(let i=0;i<10;i++){status('Uploading '+(i+1)+'/10: '+photoLabel(i));await upload(r,i,files[i]);}render();status('10 photos ready. Check their order, then save.');});
+   label.append(input);details.append(label,el('p','Name files 01–10: front, back, 4 front corners, 4 back corners.','hint'));
+  }
+ }
+ td.append(details);return td;
 }
 function render(){
  $('draftCount').textContent=drafts.length;$('stockCount').textContent=stock.filter(r=>!r.sold).length;$('soldCount').textContent=stock.filter(r=>r.sold).length;
@@ -65,7 +80,7 @@ function render(){
   sel.onchange=()=>{change(r,'condition',sel.value);render();};cond.append(sel);
   if(r.condition==='Slab'){const grade=el('input');grade.className='grade';grade.placeholder='PSA 10';grade.value=r.slab||'';grade.disabled=r.sold||r.consignment;if(grade.disabled)grade.dataset.fixed='true';grade.onchange=()=>change(r,'slab',grade.value);cond.append(grade);}tr.append(cond);
   ['cost','price'].forEach(field=>{const cell=el('td'),input=moneyInput(r,field);input.disabled=r.sold||r.consignment;if(input.disabled)input.dataset.fixed='true';cell.append(input);tr.append(cell);});
-  tr.append(photoCell(r,0),photoCell(r,1));
+  tr.append(photoCell(r,0),photoCell(r,1),detailPhotos(r));
   const sale=el('td');if(r.stockId)sale.append(moneyInput(r,'sale'));else sale.textContent='—';tr.append(sale);
   const actions=el('td');
   if(r.stockId){const link=el('a','Listing ↗');link.href='https://t.me/'+bot+'?start=listing_'+r.stockId;link.target='_blank';link.rel='noopener noreferrer';actions.append(link);}
@@ -103,15 +118,16 @@ async function upload(row,index,file){
  const body=new FormData();body.append('photo',file);const result=await api('upload',body);
  const copy=[...(row.photos||[])];copy[index]=result.photo;
  // A back photo can be chosen before the front; keep the empty front slot visible.
- if(!copy[0])copy[0]='';
+ for(let i=0;i<copy.length;i++)if(!copy[i])copy[i]='';
  change(row,'photos',copy);photos.set(result.photo,URL.createObjectURL(file));
 }
 $('bulkPhotos').onchange=()=>task(async()=>{
  let count=0;const errors=[];const seen=new Set();
- for(const file of $('bulkPhotos').files){const m=file.name.match(/^(\d+)-(front|back)\.(jpe?g|png)$/i);
+ for(const file of $('bulkPhotos').files){const m=file.name.match(/^(\d+)-(front|back|0?[1-9]|10)\.(jpe?g|png)$/i);
   if(!m||!drafts[Number(m[1])-1]){errors.push(file.name);continue;}
-  const k=m[1]+'-'+m[2].toLowerCase();if(seen.has(k)){errors.push(file.name);continue;}seen.add(k);
-  try{await upload(drafts[Number(m[1])-1],m[2].toLowerCase()==='front'?0:1,file);count++;status('Uploaded '+count+' photos…');}catch{errors.push(file.name);}
+  const slot=m[2].toLowerCase()==='front'?0:m[2].toLowerCase()==='back'?1:Number(m[2])-1;
+  const k=m[1]+'-'+slot;if(seen.has(k)){errors.push(file.name);continue;}seen.add(k);
+  try{await upload(drafts[Number(m[1])-1],slot,file);count++;status('Uploaded '+count+' photos…');}catch{errors.push(file.name);}
  }render();$('bulkPhotos').value='';status(count+' photos matched.'+(errors.length?' Could not match: '+errors.join(', '):''),errors.length>0);
 });
 function picked(){const rows=(tab==='drafts'?drafts:stock).filter(r=>selected.has(key(r)));if(!rows.length)throw Error('Select at least one row.');if(rows.length>100)throw Error('Select up to 100 rows.');return rows;}
@@ -132,7 +148,7 @@ function confirmAction(title,text,rows){return new Promise(resolve=>{
 });}
 $('publish').onclick=()=>task(async()=>{
  const rows=picked();if(!await saveRows(rows)){status('Fix the highlighted rows first.',true);return;}
- const invalid=rows.filter(r=>r.price<=0||r.photos.length!==2||r.photos.some(p=>!p));if(invalid.length)throw Error('Each published row needs an asking price and front/back photos.');
+ const invalid=rows.filter(r=>r.price<=0||r.photos.length!==10||r.photos.some(p=>!p));if(invalid.length)throw Error('Each published row needs an asking price and all 10 photos.');
  if(!await confirmAction('Publish '+rows.length+' listings?','These will appear in your Telegram listings topic. Costs stay private.',rows))return;
  const result=await api('publish',{rows:rows.map(payload)});const failures=new Set(result.filter(r=>r.error).map(r=>r.id));
  result.forEach((r,i)=>{if(r.error)rows[i].error=r.error;});
