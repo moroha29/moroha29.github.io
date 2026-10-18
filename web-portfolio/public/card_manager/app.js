@@ -2,7 +2,7 @@
 (() => {
 const $=id=>document.getElementById(id);
 let token='', tab='drafts', drafts=[], stock=[], selected=new Set(), dirty=new Set(), busy=false, bot='jhcardbot', searchSeq=0;
-const photos=new Map();
+const photos=new Map(),photoLoads=new Map();
 const photoLabel=i=>i===0?'Front':i===1?'Back':i<6?'Front corner '+(i-1):'Back corner '+(i-5);
 const key=r=>r.stockId?'stock:'+r.stockId:r.id;
 const shown=()=> (tab==='drafts'?drafts:stock.filter(r=>tab==='sold'?r.sold:!r.sold)).filter(r=>(r.name+' '+r.cardId+' '+(r.stockId||'')).toLowerCase().includes($('filter').value.toLowerCase()));
@@ -12,13 +12,14 @@ function status(text,error=false){$('status').textContent=text;$('status').style
 function el(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;}
 function lock(value){busy=value;document.querySelectorAll('#workspace button,#workspace input,#workspace select,#workspace textarea').forEach(n=>n.disabled=value||n.dataset.fixed==='true');}
 async function api(path,body={},blob=false){
- const multipart=body instanceof FormData;
+ const multipart=body instanceof FormData,requestToken=token;
  const response=await fetch(window.CARD_API_BASE+path,{method:'POST',headers:{...(multipart?{}:{'Content-Type':'application/json'}),...(token?{Authorization:'Bearer '+token}:{})},body:multipart?body:JSON.stringify(body),cache:'no-store'});
+ if(path!=='login'&&requestToken!==token)throw Error('Session changed. Please sign in again.');
  if(!response.ok){const result=await response.json().catch(()=>({error:'Request failed ('+response.status+')'}));if(response.status===401&&path!=='login')signOut(false);throw Error(result.error);}
  return blob?response.blob():response.json();
 }
-function signOut(clear=true){token='';drafts=[];stock=[];selected.clear();dirty.clear();for(const url of photos.values())URL.revokeObjectURL(url);photos.clear();$('rows').replaceChildren();$('results').replaceChildren();$('workspace').hidden=true;$('login').hidden=false;$('logout').hidden=true;$('password').value='';if(clear)status('Signed out.');}
-async function task(fn){if(busy)return;lock(true);try{await fn();}catch(e){status(e.message,true);}finally{lock(false);}}
+function signOut(clear=true){token='';searchSeq++;clearTimeout(searchTimer);photoLoads.clear();drafts=[];stock=[];selected.clear();dirty.clear();for(const url of photos.values())URL.revokeObjectURL(url);photos.clear();$('rows').replaceChildren();$('results').replaceChildren();$('workspace').hidden=true;$('login').hidden=false;$('logout').hidden=true;$('password').value='';if(clear)status('Signed out.');}
+async function task(fn){if(busy)return;lock(true);try{await fn();}catch(e){status(e.message,true);}finally{lock(false);if(!$('workspace').hidden)render();}}
 async function load(preserve=false){
  const pending=preserve?[...drafts,...stock].filter(r=>dirty.has(key(r))):[];
  const data=await api('data');drafts=data.drafts||[];stock=(data.stock||[]).map(r=>({...r,sale:r.sold?r.sale:r.price}));bot=data.bot||bot;selected.clear();dirty.clear();
@@ -32,14 +33,40 @@ async function load(preserve=false){
 $('loginForm').onsubmit=e=>{e.preventDefault();task(async()=>{status('Signing in…');const result=await api('login',{password:$('password').value});token=result.token;$('password').value='';await load();$('login').hidden=true;$('workspace').hidden=false;$('logout').hidden=false;status('Ready.');});};
 $('logout').onclick=()=>task(async()=>{await api('logout');signOut();});
 $('refresh').onclick=()=>task(async()=>{if(dirty.size&&!await confirmAction('Reload inventory?','Unsaved changes will be discarded.',[]))return;await load();status('Updated.');});
-function change(r,field,value){r[field]=value;r.error='';dirty.add(key(r));selected.add(key(r));counts();}
+function change(r,field,value){
+ r[field]=value;r.error='';
+ if(r.stockId){if(field==='sale')r.saleDirty=true;else r.stockDirty=true;if(field==='price'&&!r.saleDirty)r.sale=value;}
+ dirty.add(key(r));selected.add(key(r));counts();
+}
 function cents(input){if(!/^\d+(\.\d{0,2})?$/.test(input))return null;const n=Math.round(Number(input)*100);return Number.isSafeInteger(n)&&n<=9999999999?n:null;}
-function moneyInput(r,field){const input=el('input');input.type='text';input.inputMode='decimal';input.value=money(r[field]);input.className='money';input.setAttribute('aria-label',field+' for '+r.name);input.onchange=()=>{const n=cents(input.value);if(n===null){input.setCustomValidity('Use a positive SGD amount with up to 2 decimals');input.reportValidity();return;}input.setCustomValidity('');change(r,field,n);};return input;}
-function counts(){$('selected').textContent=selected.size+' selected';}
+function moneyInput(r,field){
+ const input=el('input');input.type='text';input.inputMode='decimal';input.value=r.invalidPrices?.[field]??money(r[field]);input.className='money';input.setAttribute('aria-label',field+' for '+r.name);
+ if(r.invalidPrices?.[field]!==undefined)input.setCustomValidity('Use an SGD amount with up to 2 decimals');
+ input.oninput=()=>{const n=cents(input.value);r.invalidPrices??={};
+  if(n===null){r.invalidPrices[field]=input.value;input.setCustomValidity('Use an SGD amount with up to 2 decimals');dirty.add(key(r));selected.add(key(r));counts();return;}
+  delete r.invalidPrices[field];input.setCustomValidity('');change(r,field,n);
+ };return input;
+}
+function validateRows(rows){
+ const invalid=rows.filter(r=>Object.keys(r.invalidPrices||{}).length);
+ if(invalid.length){invalid.forEach(r=>r.error='Fix the invalid SGD amount.');throw Error('Fix the invalid price in the selected rows first.');}
+}
+function counts(){
+ $('selected').textContent=selected.size+' selected';
+ document.querySelectorAll('#rows tr').forEach(tr=>{tr.querySelector('input[type=checkbox]').checked=selected.has(tr.dataset.key);tr.classList.toggle('dirty',dirty.has(tr.dataset.key));});
+ const visible=shown(),count=visible.filter(r=>selected.has(key(r))).length;$('all').checked=visible.length>0&&count===visible.length;$('all').indeterminate=count>0&&count<visible.length;
+}
 async function thumb(id,img){
  if(!id)return;
- try{if(!photos.has(id)){const blob=await api('photo',{photo:id},true);photos.set(id,URL.createObjectURL(blob));}img.src=photos.get(id);}
- catch{img.alt='Photo unavailable';}
+ try{
+  if(!photos.has(id)){
+   let job=photoLoads.get(id);
+   if(!job){job=(async()=>{const blob=await api('photo',{photo:id},true);if(!photos.has(id))photos.set(id,URL.createObjectURL(blob));})();photoLoads.set(id,job);
+    const clear=()=>{if(photoLoads.get(id)===job)photoLoads.delete(id);};job.then(clear,clear);
+   }await job;
+  }
+  if(photos.has(id))img.src=photos.get(id);
+ }catch{img.alt='Photo unavailable';}
 }
 function photoCell(r,i,load=true){
  const td=el('td'),label=el('label',undefined,'photobox'),img=el('img',undefined,'photo');img.alt=photoLabel(i);img.src='data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
@@ -69,7 +96,7 @@ function render(){
  $('context').textContent=tab==='drafts'?'Each row is one physical copy. Save drafts first, then review and publish selected rows.':tab==='sold'?'Sold prices can be corrected. Delete permanently removes the selected cards from accounting totals.':'Edit selected rows and save. Fill in Sold SGD before marking cards sold.';
  const rows=shown();$('rows').replaceChildren();$('empty').hidden=rows.length>0;
  rows.forEach((r,index)=>{
-  const tr=el('tr');if(dirty.has(key(r)))tr.classList.add('dirty');
+  const tr=el('tr');tr.dataset.key=key(r);if(dirty.has(key(r)))tr.classList.add('dirty');
   const td=el('td'),check=el('input');check.type='checkbox';check.checked=selected.has(key(r));check.setAttribute('aria-label','Select '+r.name);check.onchange=()=>{if(check.checked)selected.add(key(r));else selected.delete(key(r));counts();};td.append(check);tr.append(td);
   const card=el('td',undefined,'card');card.append(el('strong',r.name||'Unnamed card'),el('small',(r.stockId?'Listing #'+r.stockId:'Row '+(drafts.indexOf(r)+1))+' · SNKR '+r.cardId));
   const source=el('a','SNKRDUNK ↗');source.href='https://snkrdunk.com/apparels/'+r.cardId;source.target='_blank';source.rel='noopener noreferrer';card.append(source);
@@ -84,7 +111,7 @@ function render(){
   const sale=el('td');if(r.stockId)sale.append(moneyInput(r,'sale'));else sale.textContent='—';tr.append(sale);
   const actions=el('td');
   if(r.stockId){const link=el('a','Listing ↗');link.href='https://t.me/'+bot+'?start=listing_'+r.stockId;link.target='_blank';link.rel='noopener noreferrer';actions.append(link);}
-  else{const dup=el('button','Duplicate','mini');dup.onclick=()=>{drafts.push({...r,id:newID(),revision:0,photos:[],error:''});dirty.add(key(drafts.at(-1)));render();};actions.append(dup);}
+  else{const dup=el('button','Duplicate','mini');dup.onclick=()=>{drafts.push({...r,id:newID(),revision:0,photos:[],error:''});dirty.add(key(drafts.at(-1)));selected.add(key(drafts.at(-1)));render();};actions.append(dup);}
   tr.append(actions);$('rows').append(tr);
  });
  counts();if(busy)lock(true);
@@ -97,7 +124,7 @@ let searchTimer;
 $('search').oninput=()=>{clearTimeout(searchTimer);const seq=++searchSeq;searchTimer=setTimeout(async()=>{
  const query=$('search').value.trim();if(query.length<2){$('results').replaceChildren();return;}
  try{const cards=await api('search',{query});if(seq!==searchSeq)return;$('results').replaceChildren();if(!cards.length)$('results').append(el('p','No matching cards.'));
- cards.forEach(c=>{const n=el('button',c.name+' · '+c.id);n.onclick=()=>{addCard(c);status('Added draft row.');};$('results').append(n);});
+ cards.forEach(c=>{const n=el('button',c.name+' · '+c.id);n.disabled=busy;n.onclick=()=>{if(busy)return;addCard(c);status('Added draft row.');};$('results').append(n);});
  }catch(e){status(e.message,true);}
 },300);};
 $('addLinks').onclick=()=>task(async()=>{
@@ -133,9 +160,9 @@ $('bulkPhotos').onchange=()=>task(async()=>{
 function picked(){const rows=(tab==='drafts'?drafts:stock).filter(r=>selected.has(key(r)));if(!rows.length)throw Error('Select at least one row.');if(rows.length>100)throw Error('Select up to 100 rows.');return rows;}
 function payload(r){const out={id:r.id||'',revision:r.revision,cardId:r.cardId,name:r.name,condition:r.condition,slab:r.slab||'',cost:r.cost,price:r.price,photos:r.photos||[]};if(r.stockId){out.stockId=r.stockId;out.sold=r.sold;out.sale=r.sale||0;out.consignment=r.consignment;}return out;}
 async function saveRows(rows){
- const invalid=document.querySelector('#workspace input:invalid');if(invalid){invalid.reportValidity();throw Error('Fix the invalid price first.');}
+ validateRows(rows);
  const result=await api(tab==='drafts'?'drafts':'stock',{rows:rows.map(payload),action:'save'});
- result.forEach((out,i)=>{const row=rows[i];row.error=out.error||'';if(!out.error){if(tab==='drafts')row.revision=out.revision;else row.revision++;dirty.delete(key(row));}});
+ result.forEach((out,i)=>{const row=rows[i];row.error=out.error||'';if(!out.error){if(tab==='drafts')row.revision=out.revision;else row.revision++;row.stockDirty=false;if(!row.saleDirty)dirty.delete(key(row));}});
  render();return result.every(r=>!r.error);
 }
 $('save').onclick=()=>task(async()=>{const rows=picked();if(await saveRows(rows)){await load(true);status('Saved '+rows.length+' rows.');}else status('Some rows need attention. See the row messages.',true);});
@@ -158,10 +185,14 @@ $('publish').onclick=()=>task(async()=>{
  status((rows.length-failures.size)+' listings published.'+(failures.size?' Some rows failed; check messages.':''),failures.size>0);
 });
 $('sell').onclick=()=>task(async()=>{
- const invalid=document.querySelector('#workspace input:invalid');if(invalid){invalid.reportValidity();throw Error('Fix the invalid price first.');}
- const rows=picked();if(!await confirmAction('Mark '+rows.length+' cards sold?','Check each Sold SGD value below. Sales remain in your records and topic posts are retired.',rows))return;
- const result=await api('stock',{rows:rows.map(payload),action:'sold'});const failed=result.filter(r=>r.error);
- if(failed.length){result.forEach((r,i)=>rows[i].error=r.error||'');render();status('Some rows failed. Refresh and review before retrying.',true);}else{rows.forEach(r=>dirty.delete(key(r)));await load(true);status('Sales recorded.');}
+ const rows=picked();validateRows(rows);
+ if(!await confirmAction('Mark '+rows.length+' cards sold?','Check Sold SGD below. Unsaved listing edits will be saved first. Topic posts will be retired.',rows))return;
+ const edits=rows.filter(r=>r.stockDirty&&!r.sold&&!r.consignment);
+ if(edits.length&&!await saveRows(edits)){status('Fix the row errors before recording sales.',true);return;}
+ const result=await api('stock',{rows:rows.map(payload),action:'sold'});const failed=[];
+ result.forEach((out,i)=>{const row=rows[i];if(out.error){row.error=out.error;dirty.add(key(row));failed.push(key(row));}else{row.saleDirty=false;row.stockDirty=false;dirty.delete(key(row));}});
+ await load(true);failed.forEach(k=>selected.add(k));render();
+ status(failed.length?(rows.length-failed.length)+' sold; '+failed.length+' need attention. Refresh and review the failed rows.':'Sales recorded.',failed.length>0);
 });
 $('remove').onclick=()=>task(async()=>{
  const rows=picked();if(!await confirmAction('Delete '+rows.length+' rows?',tab==='drafts'?'Drafts will be discarded.':'This removes selected listings and their amounts from your accounting totals. This cannot be undone here.',rows))return;
@@ -169,8 +200,8 @@ $('remove').onclick=()=>task(async()=>{
  const result=saved.length?await api(tab==='drafts'?'discard':'stock',{rows:saved.map(payload),action:'delete'}):[];
  const failures=new Set(result.filter(r=>r.error).map(r=>r.id||'stock:'+r.stockId));
  rows.forEach(r=>{if(!failures.has(key(r))){if(tab==='drafts')drafts=drafts.filter(d=>d!==r);else stock=stock.filter(d=>d!==r);selected.delete(key(r));dirty.delete(key(r));}});
- result.forEach(r=>{if(r.error){const row=rows.find(x=>key(x)===(r.stockId?'stock:'+r.stockId:r.id));if(row)row.error=r.error;}});
- if(!failures.size)await load(true);render();status(failures.size?'Some rows could not be deleted. Refresh and review.':'Deleted selected rows.',failures.size>0);
+ result.forEach(r=>{if(r.error){const row=rows.find(x=>key(x)===(r.stockId?'stock:'+r.stockId:r.id));if(row){row.error=r.error;dirty.add(key(row));}}});
+ await load(true);failures.forEach(k=>selected.add(k));render();status(failures.size?'Some rows could not be deleted. Refresh and review.':'Deleted selected rows.',failures.size>0);
 });
 window.addEventListener('beforeunload',e=>{if(dirty.size){e.preventDefault();e.returnValue='';}});
 })();
