@@ -2,7 +2,18 @@
 (() => {
 const $=id=>document.getElementById(id);
 let token='', tab='drafts', drafts=[], stock=[], selected=new Set(), dirty=new Set(), busy=false, bot='jhcardbot', searchSeq=0;
-const photos=new Map(),photoLoads=new Map();
+const photos=new Map(),photoLoads=new Map(),photoSizes=new Map();
+let photoBytes=0,activePhotos=0;const photoWaiters=[];
+function cachePhoto(id,blob){
+ if(photos.has(id)){URL.revokeObjectURL(photos.get(id));photoBytes-=photoSizes.get(id)||0;photos.delete(id);}
+ photos.set(id,URL.createObjectURL(blob));photoSizes.set(id,blob.size);photoBytes+=blob.size;
+ while(photos.size>80||photoBytes>32*1024*1024){const oldest=photos.keys().next().value;URL.revokeObjectURL(photos.get(oldest));photoBytes-=photoSizes.get(oldest)||0;photos.delete(oldest);photoSizes.delete(oldest);}
+}
+async function photoSlot(fn){
+ if(activePhotos>=3)await new Promise(resolve=>photoWaiters.push(resolve));else activePhotos++;
+ try{return await fn();}finally{const next=photoWaiters.shift();if(next)next();else activePhotos--;}
+}
+const photoObserver=new IntersectionObserver(entries=>{for(const entry of entries)if(entry.isIntersecting){photoObserver.unobserve(entry.target);thumb(entry.target.dataset.photo,entry.target);}}, {rootMargin:'250px'});
 const photoLabel=i=>i===0?'Front':i===1?'Back':i<6?'Front corner '+(i-1):'Back corner '+(i-5);
 const key=r=>r.stockId?'stock:'+r.stockId:r.id;
 const shown=()=> (tab==='drafts'?drafts:stock.filter(r=>tab==='sold'?r.sold:!r.sold)).filter(r=>(r.name+' '+r.cardId+' '+(r.stockId||'')).toLowerCase().includes($('filter').value.toLowerCase()));
@@ -18,7 +29,7 @@ async function api(path,body={},blob=false){
  if(!response.ok){const result=await response.json().catch(()=>({error:'Request failed ('+response.status+')'}));if(response.status===401&&path!=='login')signOut(false);throw Error(result.error);}
  return blob?response.blob():response.json();
 }
-function signOut(clear=true){token='';searchSeq++;clearTimeout(searchTimer);photoLoads.clear();drafts=[];stock=[];selected.clear();dirty.clear();for(const url of photos.values())URL.revokeObjectURL(url);photos.clear();$('rows').replaceChildren();$('results').replaceChildren();$('workspace').hidden=true;$('login').hidden=false;$('logout').hidden=true;$('password').value='';if(clear)status('Signed out.');}
+function signOut(clear=true){token='';searchSeq++;clearTimeout(searchTimer);photoLoads.clear();drafts=[];stock=[];selected.clear();dirty.clear();for(const url of photos.values())URL.revokeObjectURL(url);photos.clear();photoSizes.clear();photoBytes=0;photoObserver.disconnect();$('rows').replaceChildren();$('results').replaceChildren();$('workspace').hidden=true;$('login').hidden=false;$('logout').hidden=true;$('password').value='';if(clear)status('Signed out.');}
 async function task(fn){if(busy)return;lock(true);try{await fn();}catch(e){status(e.message,true);}finally{lock(false);if(!$('workspace').hidden)render();}}
 async function load(preserve=false){
  const pending=preserve?[...drafts,...stock].filter(r=>dirty.has(key(r))):[];
@@ -61,16 +72,16 @@ async function thumb(id,img){
  try{
   if(!photos.has(id)){
    let job=photoLoads.get(id);
-   if(!job){job=(async()=>{const blob=await api('photo',{photo:id},true);if(!photos.has(id))photos.set(id,URL.createObjectURL(blob));})();photoLoads.set(id,job);
+   if(!job){const session=token;job=photoSlot(async()=>{if(session!==token)throw Error('Session changed');const blob=await api('photo',{photo:id,thumbnail:true},true);if(session!==token)throw Error('Session changed');if(!photos.has(id))cachePhoto(id,blob);});photoLoads.set(id,job);
     const clear=()=>{if(photoLoads.get(id)===job)photoLoads.delete(id);};job.then(clear,clear);
    }await job;
   }
-  if(photos.has(id))img.src=photos.get(id);
+  if(photos.has(id)){const url=photos.get(id);photos.delete(id);photos.set(id,url);img.src=url;}
  }catch{img.alt='Photo unavailable';}
 }
 function photoCell(r,i,load=true){
  const td=el('td'),label=el('label',undefined,'photobox'),img=el('img',undefined,'photo');img.alt=photoLabel(i);img.src='data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
- const id=(r.photos||[])[i];if(id&&load)thumb(id,img);
+ const id=(r.photos||[])[i];img.decoding='async';if(id&&load){img.dataset.photo=id;photoObserver.observe(img);}
  label.append(img,el('span',(i>1?photoLabel(i)+' · ':'')+(id?'Change':'Upload')));
  if(!r.sold&&!r.consignment){const file=el('input');file.type='file';file.accept='image/jpeg,image/png';file.onchange=()=>{if(file.files[0])task(async()=>{await upload(r,i,file.files[0]);render();status('Photo ready. Save the row to keep it.');});};label.append(file);}
  td.append(label);return td;
@@ -94,7 +105,7 @@ function render(){
  document.querySelectorAll('[data-tab]').forEach(n=>n.classList.toggle('active',n.dataset.tab===tab));
  $('addPanel').hidden=tab!=='drafts';$('publish').hidden=tab!=='drafts';$('sell').hidden=tab==='drafts';$('save').hidden=tab==='sold';
  $('context').textContent=tab==='drafts'?'Each row is one physical copy. Save drafts first, then review and publish selected rows.':tab==='sold'?'Sold prices can be corrected. Delete permanently removes the selected cards from accounting totals.':'Edit selected rows and save. Fill in Sold SGD before marking cards sold.';
- const rows=shown();$('rows').replaceChildren();$('empty').hidden=rows.length>0;
+ const rows=shown();photoObserver.disconnect();$('rows').replaceChildren();$('empty').hidden=rows.length>0;
  rows.forEach((r,index)=>{
   const tr=el('tr');tr.dataset.key=key(r);if(dirty.has(key(r)))tr.classList.add('dirty');
   const td=el('td'),check=el('input');check.type='checkbox';check.checked=selected.has(key(r));check.setAttribute('aria-label','Select '+r.name);check.onchange=()=>{if(check.checked)selected.add(key(r));else selected.delete(key(r));counts();};td.append(check);tr.append(td);
@@ -119,7 +130,7 @@ function render(){
 document.querySelectorAll('[data-tab]').forEach(n=>n.onclick=()=>{tab=n.dataset.tab;selected.clear();$('filter').value='';$('all').checked=false;render();});
 $('filter').oninput=render;
 $('all').onchange=()=>{shown().forEach(r=>{$('all').checked?selected.add(key(r)):selected.delete(key(r));});render();};
-function addCard(card){const row={id:newID(),revision:0,cardId:card.id,name:card.name,condition:'NM',slab:'',cost:0,price:0,photos:[]};drafts.push(row);dirty.add(key(row));selected.add(key(row));render();}
+function addCard(card,paint=true){const row={id:newID(),revision:0,cardId:card.id,name:card.name,condition:'NM',slab:'',cost:0,price:0,photos:[]};drafts.push(row);dirty.add(key(row));selected.add(key(row));if(paint)render();}
 let searchTimer;
 $('search').oninput=()=>{clearTimeout(searchTimer);const seq=++searchSeq;searchTimer=setTimeout(async()=>{
  const query=$('search').value.trim();if(query.length<2){$('results').replaceChildren();return;}
@@ -130,12 +141,12 @@ $('search').oninput=()=>{clearTimeout(searchTimer);const seq=++searchSeq;searchT
 $('addLinks').onclick=()=>task(async()=>{
  const lines=$('links').value.split(/[\n,]+/).map(s=>s.trim()).filter(Boolean);
  if(lines.length>100)throw Error('Add up to 100 links at once.');
- let added=0;const failures=[];
+ let added=0;const failures=[],matched=new Map();
  for(const line of lines){status('Matching '+(added+failures.length+1)+' / '+lines.length+'…');try{
   const match=line.match(/^(?:https:\/\/snkrdunk\.com\/apparels\/)?(\d+)\/?(?:\?.*)?$/);
   if(!match)throw Error('Use a product ID or SNKRDUNK card link');
-  const cards=await api('search',{query:match[1]});const card=cards.find(c=>String(c.id)===match[1]);
-  if(!card)throw Error('Card not in the catalogue');addCard(card);added++;
+  let card=matched.get(match[1]);if(!card){const cards=await api('search',{query:match[1]});card=cards.find(c=>String(c.id)===match[1]);if(card)matched.set(match[1],card);}
+  if(!card)throw Error('Card not in the catalogue');addCard(card,false);added++;
  }catch(e){failures.push(line+': '+e.message);}}
  $('links').value=failures.map(s=>s.split(': ')[0]).join('\n');
  status(added+' rows added.'+(failures.length?' '+failures.length+' unmatched links left to review.':''),failures.length>0);
@@ -146,7 +157,7 @@ async function upload(row,index,file){
  const copy=[...(row.photos||[])];copy[index]=result.photo;
  // A back photo can be chosen before the front; keep the empty front slot visible.
  for(let i=0;i<copy.length;i++)if(!copy[i])copy[i]='';
- change(row,'photos',copy);photos.set(result.photo,URL.createObjectURL(file));
+ change(row,'photos',copy);cachePhoto(result.photo,file);
 }
 $('bulkPhotos').onchange=()=>task(async()=>{
  let count=0;const errors=[];const seen=new Set();
