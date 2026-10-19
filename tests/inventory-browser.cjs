@@ -5,6 +5,10 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
  try {
  const page=await browser.newPage({viewport:{width:Number(process.env.INVENTORY_WIDTH||1440),height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
  const base=path.resolve(__dirname,'../web-portfolio/public/card_manager');let drafts=[],stock=[],next=1,failStockId=0,failDeleteId=0,photoRequests=0,activePhotos=0,maxPhotos=0,searchRequests=0;
+ let carousellBatches=[],batchNext=1,template={intro:'Tap a card link → Start in Telegram → view photos or make an offer.',item:'{card} ({condition}) - S${price}\n{link}',outro:'',revision:0};
+ const batchView=b=>{const items=b.ids.map(id=>{const row=stock.find(r=>r.stockId===id);return row?{stockId:id,name:row.name,condition:row.condition,price:row.price,sold:row.sold,deleted:false}:{stockId:id,name:'Deleted card',price:0,deleted:true};});
+ const live=items.filter(i=>!i.sold&&!i.deleted);const description=live.length?[template.intro,...live.map(i=>template.item.replaceAll('{card}',i.name).replaceAll('{condition}',i.condition).replaceAll('{price}',(i.price/100).toFixed(2)).replaceAll('{link}','https://t.me/testbot?start=listing_'+i.stockId)),template.outro].filter(Boolean).join('\n\n'):'';
+ return {...b,items,description,status:b.posted===undefined?'Prepared':b.posted===description?'Posted':'Needs update'};};
  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABQAAAAeCAIAAACjcKk8AAAAHklEQVR4nGPoWNVBNmIY1TyqeVTzqOZRzaOah7NmAIrvDC0dEI/8AAAAAElFTkSuQmCC','base64');
  await page.route('https://moroha29.github.io/card_manager/**',async route=>{
   const name=new URL(route.request().url()).pathname.split('/').pop()||'index.html';
@@ -17,7 +21,7 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
   const body=action==='upload'?{}:req.postDataJSON();let result;
   if(action==='login'){result={token:'a'.repeat(96)};}
   else {assert.equal(req.headers().authorization,'Bearer '+'a'.repeat(96));
-   if(action==='data')result={drafts,stock,bot:'testbot',totals:{InventoryCost:100,Revenue:0,SoldCost:0,Spent:100,ConsignmentPayout:0}};
+   if(action==='data')result={drafts,stock,bot:'testbot',totals:{InventoryCost:100,Revenue:0,SoldCost:0,Spent:100,ConsignmentPayout:0},carousell:{template,batches:carousellBatches.map(batchView)}};
    if(action==='search')searchRequests++;
    if(action==='search')result=[{id:93097,name:'Eevee ex SAR [224/187]'}];
    if(action==='upload')result={photo:'web:'+String(next++).padStart(24,'0')+'.jpg'};
@@ -32,11 +36,22 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
     else stock[i]={...stock[i],sale:r.sale,revision:r.revision+1,sold:true,photos:[]};
     return {stockId:r.stockId};
    });
+   if(action==='carousell'){
+    if(body.action==='create'){
+     assert(body.ids.every(id=>!carousellBatches.some(b=>b.ids.includes(id))));
+     for(let i=0;i<body.ids.length;i+=body.size){const id=batchNext++;carousellBatches.push({id,name:body.name||'Batch #'+id,url:'',revision:1,ids:body.ids.slice(i,i+body.size)});}
+    }else if(body.action==='template'){template={...body.template,revision:template.revision+1};}
+    else {const b=carousellBatches.find(b=>b.id===body.id);assert.equal(b.revision,body.revision);
+     if(body.action==='remove')carousellBatches=carousellBatches.filter(b=>b.id!==body.id);
+     else {if(body.action==='posted')b.posted=batchView(b).description;b.name=body.name;b.url=body.url;b.revision++;}
+    }result={ok:true};
+   }
    if(action==='logout')result={ok:true};
   }
   assert.notEqual(result,undefined,action);await route.fulfill({headers,contentType:'application/json',body:JSON.stringify(result)});
  });
  await page.addInitScript(()=>{const create=URL.createObjectURL.bind(URL),revoke=URL.revokeObjectURL.bind(URL);window.livePhotoURLs=new Set();URL.createObjectURL=blob=>{const url=create(blob);window.livePhotoURLs.add(url);return url;};URL.revokeObjectURL=url=>{window.livePhotoURLs.delete(url);revoke(url);};});
+ await page.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{value:{writeText:async text=>{window.copiedDescription=text;}}}));
  await page.goto('https://moroha29.github.io/card_manager/');await page.locator('#password').fill('test-password');await page.locator('#loginForm button').click();await page.locator('#workspace').waitFor({state:'visible'});
  await page.locator('#search').fill('Eevee');await page.locator('#results button').click();
  let row=page.locator('#rows tr').first();await row.locator('input.money').nth(0).fill('100');await row.locator('input.money').nth(1).fill('150');await row.locator('select').focus();
@@ -67,7 +82,7 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
  await page.locator('[data-tab=sold]').click();failDeleteId=902;await page.locator('#all').check();await page.locator('#remove').click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('Some rows could not be deleted'));
  assert.equal(await page.locator('#rows tr').count(),1);assert.equal(await page.locator('#selected').textContent(),'1 selected');assert.equal(stock[0].stockId,902);
  failDeleteId=0;await page.locator('#remove').click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('#status').textContent==='Deleted selected rows.');assert.equal(stock.length,0);
- searchRequests=0;await page.locator('[data-tab=drafts]').click();await page.locator('summary').click();await page.locator('#links').fill('93097\nhttps://snkrdunk.com/apparels/93097');await page.locator('#addLinks').click();await page.waitForFunction(()=>document.querySelectorAll('#rows tr').length===2);
+ searchRequests=0;await page.locator('[data-tab=drafts]').click();await page.locator('#addPanel summary').click();await page.locator('#links').fill('93097\nhttps://snkrdunk.com/apparels/93097');await page.locator('#addLinks').click();await page.waitForFunction(()=>document.querySelectorAll('#rows tr').length===2);
  assert.equal(searchRequests,1,'duplicate links should share catalogue lookup');
  await page.locator('#bulkPhotos').setInputFiles(Array.from({length:10},(_,i)=>({name:'1-'+String(i+1).padStart(2,'0')+'.png',mimeType:'image/png',buffer:png})));
  await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('10 photos matched'));
@@ -101,6 +116,30 @@ if(process.env.INVENTORY_SCREENSHOT)await page.screenshot({path:process.env.INVE
  assert(await page.evaluate(()=>window.livePhotoURLs.size<=80),'photo cache exceeded limit');
  await Promise.all([page.waitForResponse(r=>r.url().endsWith('/data')),page.locator('#refresh').click()]);await page.waitForFunction(()=>!document.querySelector('#refresh').disabled);await page.locator('#rows tr').first().scrollIntoViewIfNeeded();
  await page.waitForFunction(()=>document.querySelector('#rows img')?.src.startsWith('blob:'));
+
+ // Carousell grouping persists, remains mobile-friendly, and never leaks cost.
+ stock=Array.from({length:19},(_,i)=>({stockId:3000+i,cardId:93097,name:'Eevee batch copy '+i,condition:'NM',cost:99999,price:15000,photos:['front','back'],revision:1,sold:false}));
+ await page.locator('#refresh').click();await page.waitForFunction(()=>document.querySelectorAll('#rows tr').length===19);
+ await page.locator('#all').check();await page.locator('#makeBatch').click();await page.locator('#batchSize').selectOption('9');await page.locator('#batchCreate').click();
+ await page.waitForFunction(()=>document.querySelectorAll('.batchCard').length===3);
+ assert.deepEqual(carousellBatches.map(b=>b.ids.length),[9,9,1]);
+ let batch=page.locator('.batchCard').first();const desc=await batch.locator('textarea').inputValue();assert(desc.includes('S$150.00'));assert(desc.includes('?start=listing_3000'));assert(!desc.includes('999.99'));
+ await batch.locator('[data-action=copy]').click();assert.equal(await page.evaluate(()=>window.copiedDescription),desc);
+ await batch.locator('[data-action=posted]').click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('.batchStatus').textContent==='Posted');
+ stock[0].sold=true;await page.locator('#refresh').click();await page.waitForFunction(()=>document.querySelector('.batchStatus').textContent==='Needs update');
+ assert(!(await batch.locator('textarea').inputValue()).includes('?start=listing_3000\n'));
+ await page.locator('.batchTemplate summary').click();await page.locator('#templateIntro').fill('Tap the link, then Start.');await page.locator('#saveTemplate').click();await page.waitForFunction(()=>document.querySelector('#status').textContent==='Template saved.');
+ assert((await batch.locator('textarea').inputValue()).startsWith('Tap the link, then Start.'));
+ await page.locator('[data-tab=stock]').click();assert.equal(await page.locator('.batchBadge').count(),18);
+ await page.locator('#all').check();await page.locator('#makeBatch').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('already have a Carousell batch'));
+ await page.locator('#unassigned').check();assert.equal(await page.locator('#rows tr').count(),0);await page.locator('#unassigned').uncheck();
+ await page.locator('[data-tab=carousell]').click();batch=page.locator('.batchCard').first();await batch.locator('summary').last().click();await batch.locator('input[aria-label="Carousell listing URL"]').fill('https://www.carousell.sg/p/test');await batch.locator('[data-action=details]').click();await page.waitForFunction(()=>document.querySelector('#status').textContent==='Batch details saved.');
+ for(const width of [320,390,750]){await page.setViewportSize({width,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'batch panel overflows '+width);}
+ await page.setViewportSize({width:390,height:844});await batch.scrollIntoViewIfNeeded();
+ if(process.env.INVENTORY_SCREENSHOT)await page.screenshot({path:process.env.INVENTORY_SCREENSHOT.replace('.png','-carousell.png'),fullPage:true});
+ await batch.locator('summary').last().click();await batch.locator('[data-action=ungroup]').click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelectorAll('.batchCard').length===2);assert.equal(stock.length,19,'ungroup deleted inventory');
+ await page.locator('[data-tab=stock]').click();await page.locator('#unassigned').check();assert.equal(await page.locator('#rows tr').count(),8);
+ console.log('PASS: Carousell 9-card batches, copy, badges, templates, sold updates, duplicate prevention and ungroup');
  await page.locator('#logout').click();await page.locator('#login').waitFor({state:'visible'});
  assert.equal(await page.evaluate(()=>window.livePhotoURLs.size),0,'logout retained photo cache');
  assert.deepEqual(errors,[]);console.log('PASS: owner login, search, photos, publish, edit, sale, delete and bulk links');

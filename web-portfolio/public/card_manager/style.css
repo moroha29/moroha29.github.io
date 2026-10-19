@@ -40,3 +40,12 @@
  dialog{padding:20px;max-height:85dvh;overflow:auto}.dialogactions{position:sticky;bottom:-20px;background:#fff;padding:12px 0;margin-top:12px}.dialogactions button{flex:1}
  #status{bottom:calc(12px + env(safe-area-inset-bottom));padding:12px 16px;max-height:25vh;overflow:auto;width:calc(100% - 24px);pointer-events:none}
 }
+
+.batchBadge{display:block;margin-top:8px;font-size:11px;padding:8px;color:#305b3b;text-align:left}
+.batchTemplate,.batchCard{background:#fff;border:1px solid #dce2d6;border-radius:12px;padding:20px;margin:18px 0}
+.batchTemplate label{display:block;margin:14px 0 6px}.batchTemplate textarea,.batchCard textarea{width:100%;resize:vertical;line-height:1.6}
+.batchHeading{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.batchHeading h2{font-size:20px;margin:0;overflow-wrap:anywhere}
+.batchStatus{font-size:12px;background:#e7efdf;padding:6px 10px;border-radius:12px}.needsUpdate{background:#fff0d4;color:#805b10}
+.batchActions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.batchCard details{margin:12px 0}.batchCard details input{display:block;width:100%;margin:10px 0}.batchCard details button{margin:0 8px 8px 0}.batchCard a{display:inline-block;max-width:100%;overflow-wrap:anywhere;color:#376c44}.batchCard .hint{overflow-wrap:anywhere}
+#batchDialog label{display:block;margin:14px 0 6px}#batchDialog input,#batchDialog select{width:100%}
+@media(max-width:750px){.tabs{overflow-x:auto}.tabs button{flex:0 0 auto}.batchTemplate,.batchCard{padding:16px}.batchActions button{flex:1}#makeBatch,#unassignedLabel{grid-column:1/-1}#carousellPanel{min-width:0}.batchCard{scroll-margin-top:16px}}

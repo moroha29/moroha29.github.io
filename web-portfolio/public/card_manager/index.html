@@ -6,14 +6,27 @@
 <section id="workspace" hidden>
 <div class="heading"><div><div class="eyebrow">CARD SHOP</div><h1>Your inventory</h1><p>Draft here. Publish to Telegram when ready.</p></div><button id="refresh">Refresh</button></div>
 <div id="totals" class="totals"></div>
-<nav class="tabs"><button data-tab="drafts" class="active">Drafts <span id="draftCount">0</span></button><button data-tab="stock">Available <span id="stockCount">0</span></button><button data-tab="sold">Sold <span id="soldCount">0</span></button></nav>
+<nav class="tabs"><button data-tab="drafts" class="active">Drafts <span id="draftCount">0</span></button><button data-tab="stock">Available <span id="stockCount">0</span></button><button data-tab="sold">Sold <span id="soldCount">0</span></button><button data-tab="carousell">Carousell <span id="batchCount">0</span></button></nav>
 <section id="addPanel" class="addpanel"><div><label for="search">Find a SNKRDUNK card</label><input id="search" placeholder="Card name, number or SNKRDUNK link" autocomplete="off"><div id="results" class="results"></div></div><details><summary>Add several cards at once</summary><label for="links">One SNKRDUNK card link or product ID per line</label><textarea id="links" rows="4" placeholder="https://snkrdunk.com/apparels/93097"></textarea><button id="addLinks">Add rows</button><label class="filebutton">Match photos to rows<input id="bulkPhotos" type="file" accept="image/jpeg,image/png" multiple></label><p class="hint">Name files 1-01.jpg through 1-10.jpg for row 1, then 2-01.jpg through 2-10.jpg for row 2. Order: front, back, 4 front corners, 4 back corners. Review the photos before publishing. JPG/PNG, up to 5 MB each.</p></details></section>
-<div class="toolbar"><label class="check"><input id="all" type="checkbox"> Select shown</label><span id="selected">0 selected</span><input id="filter" placeholder="Filter this list" aria-label="Filter inventory"><button id="save">Save selected</button><button id="publish" class="primary">Publish selected</button><button id="sell" hidden>Mark sold</button><button id="remove" class="danger">Delete selected</button><label id="photoBatch" class="filebutton" hidden>Upload photos</label></div>
+<div id="inventoryToolbar" class="toolbar"><label class="check"><input id="all" type="checkbox"> Select shown</label><span id="selected">0 selected</span><input id="filter" placeholder="Filter this list" aria-label="Filter inventory"><button id="save">Save selected</button><button id="publish" class="primary">Publish selected</button><button id="sell" hidden>Mark sold</button><button id="remove" class="danger">Delete selected</button><button id="makeBatch" hidden>Group for Carousell</button><label id="unassignedLabel" class="check" hidden><input id="unassigned" type="checkbox"> Ungrouped only</label><label id="photoBatch" class="filebutton" hidden>Upload photos</label></div>
 <p id="context" class="hint"></p>
-<div class="tablewrap"><table><thead><tr><th></th><th>Card</th><th>Condition / grade</th><th>Cost · SGD <small>Private</small></th><th>Asking · SGD</th><th>Front</th><th>Back</th><th>All photos</th><th>Sold · SGD</th><th></th></tr></thead><tbody id="rows"></tbody></table><div id="empty" class="empty">No cards here yet.</div></div>
-<p class="hint">Publishing shows photos, condition and asking price in your listings topic. Cost prices stay private. Mark sold preserves your sales history; deleting removes a card from totals.</p>
+<div id="inventoryTable" class="tablewrap"><table><thead><tr><th></th><th>Card</th><th>Condition / grade</th><th>Cost · SGD <small>Private</small></th><th>Asking · SGD</th><th>Front</th><th>Back</th><th>All photos</th><th>Sold · SGD</th><th></th></tr></thead><tbody id="rows"></tbody></table><div id="empty" class="empty">No cards here yet.</div></div>
+<p id="inventoryHint" class="hint">Publishing shows photos, condition and asking price in your listings topic. Cost prices stay private. Mark sold preserves your sales history; deleting removes a card from totals.</p>
+<section id="carousellPanel" hidden>
+<p class="hint">Select cards in Available → Group for Carousell → copy the description. Mark posted after you list them.</p>
+<details class="batchTemplate"><summary>Edit description template</summary>
+<label for="templateIntro">Opening message</label><textarea id="templateIntro" rows="3"></textarea>
+<label for="templateItem">Each card</label><textarea id="templateItem" rows="3"></textarea>
+<p class="hint">Use {card}, {condition}, {price}, {link}. Use {bot_link} anywhere.</p>
+<label for="templateOutro">Closing message (optional)</label><textarea id="templateOutro" rows="2"></textarea>
+<button id="saveTemplate">Save template</button><p class="hint">Applies to all batch previews. Posted batches will show when they need updating.</p></details>
+<div id="batches" class="batches"></div></section>
 </section>
 <div id="status" role="status" aria-live="polite"></div>
 </main>
 <dialog id="confirm"><h2 id="confirmTitle"></h2><p id="confirmText"></p><div id="confirmCards"></div><div class="dialogactions"><button id="confirmNo">Cancel</button><button id="confirmYes" class="primary">Confirm</button></div></dialog>
+<dialog id="batchDialog"><h2>Group selected cards</h2><p id="batchSummary"></p>
+<label for="batchSize">Cards per batch</label><select id="batchSize"><option value="9">9</option><option value="10">10</option></select>
+<label for="batchName">Batch name (optional)</label><input id="batchName" maxlength="100" placeholder="e.g. Pokémon October">
+<div class="dialogactions"><button id="batchCancel">Cancel</button><button id="batchCreate" class="primary">Create batches</button></div></dialog>
 <script src="config.js"></script><script src="app.js" defer></script></body></html>
