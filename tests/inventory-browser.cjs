@@ -3,7 +3,7 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
 (async()=>{
  const browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH||undefined});
  try {
- const page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ const page=await browser.newPage({viewport:{width:Number(process.env.INVENTORY_WIDTH||1440),height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
  const base=path.resolve(__dirname,'../web-portfolio/public/card_manager');let drafts=[],stock=[],next=1,failStockId=0,failDeleteId=0,photoRequests=0,activePhotos=0,maxPhotos=0,searchRequests=0;
  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABQAAAAeCAIAAACjcKk8AAAAHklEQVR4nGPoWNVBNmIY1TyqeVTzqOZRzaOah7NmAIrvDC0dEI/8AAAAAElFTkSuQmCC','base64');
  await page.route('https://moroha29.github.io/card_manager/**',async route=>{
@@ -60,7 +60,7 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
  // A partial bulk sale/deletion refreshes successes and selects only failures.
  stock=[901,902].map(id=>({id:'',stockId:id,cardId:93097,name:'Eevee copy '+id,condition:'NM',slab:'',cost:5000,price:10000,photos:['front','back'],revision:1,sold:false,consignment:false}));
  photoRequests=0;await page.locator('[data-tab=stock]').click();await page.locator('#refresh').click();await page.waitForFunction(()=>document.querySelectorAll('#rows tr').length===2);
- await page.waitForFunction(()=>[...document.querySelectorAll('#rows tr')].every(tr=>tr.querySelector('img').src.startsWith('blob:')));assert.equal(photoRequests,2,'duplicate photo downloads');
+ for(const r of await page.locator('#rows tr').all()){await r.locator('img').first().scrollIntoViewIfNeeded();await r.locator('img').first().evaluate(img=>new Promise(resolve=>{if(img.src.startsWith('blob:'))return resolve();const observer=new MutationObserver(()=>{if(img.src.startsWith('blob:')){observer.disconnect();resolve();}});observer.observe(img,{attributes:true,attributeFilter:['src']});}));}assert.equal(photoRequests,2,'duplicate photo downloads');
  failStockId=902;await page.locator('#all').check();await page.locator('#sell').click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('1 sold;'));
  assert.equal(await page.locator('#rows tr').count(),1);assert.equal(await page.locator('#stockCount').textContent(),'1');assert.equal(await page.locator('#soldCount').textContent(),'1');assert.equal(await page.locator('#selected').textContent(),'1 selected');
  failStockId=0;await page.locator('#sell').click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('#status').textContent==='Sales recorded.');
@@ -73,7 +73,18 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
  await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('10 photos matched'));
  assert.equal(await page.locator('#rows tr').first().locator('summary').textContent(),'10/10 photos');
  assert.equal(await page.locator('#rows tr').nth(1).locator('summary').textContent(),'0/10 photos');
- await page.setViewportSize({width:390,height:844});assert.equal(await page.locator('#search').isVisible(),true);
+ for(const width of [320,390,750]){
+ await page.setViewportSize({width,height:844});
+ assert.equal(await page.locator('#search').isVisible(),true);
+ assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'page overflows phone width '+width);
+ const first=page.locator('#rows tr').first();
+ assert.equal(await first.locator('input.money').first().evaluate(e=>getComputedStyle(e).fontSize),'16px');
+ await first.locator('summary').click();
+ assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'expanded photos overflow phone width '+width);
+ await first.locator('summary').click();
+}
+await page.setViewportSize({width:390,height:844});
+if(process.env.INVENTORY_SCREENSHOT)await page.screenshot({path:process.env.INVENTORY_SCREENSHOT.replace('.png','-mobile.png'),fullPage:true});
  await page.setViewportSize({width:1440,height:1000});
  await page.screenshot({path:process.env.INVENTORY_SCREENSHOT||'inventory-preview.png',fullPage:true});
  // Large inventories load only nearby previews, and never flood the server.
