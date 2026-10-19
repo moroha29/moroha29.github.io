@@ -137,12 +137,37 @@ $('unassigned').onchange=()=>{selected.clear();render();};
 $('all').onchange=()=>{shown().forEach(r=>{$('all').checked?selected.add(key(r)):selected.delete(key(r));});render();};
 function addCard(card,paint=true){const row={id:newID(),revision:0,cardId:card.id,name:card.name,condition:'NM',slab:'',cost:0,price:0,photos:[]};drafts.push(row);dirty.add(key(row));selected.add(key(row));if(paint)render();}
 let searchTimer;
-$('search').oninput=()=>{clearTimeout(searchTimer);const seq=++searchSeq;searchTimer=setTimeout(async()=>{
- const query=$('search').value.trim();if(query.length<2){$('results').replaceChildren();return;}
- try{const cards=await api('search',{query});if(seq!==searchSeq)return;$('results').replaceChildren();if(!cards.length)$('results').append(el('p','No matching cards.'));
- cards.forEach(c=>{const n=el('button',c.name+' · '+c.id);n.disabled=busy;n.onclick=()=>{if(busy)return;addCard(c);status('Added draft row.');};$('results').append(n);});
- }catch(e){status(e.message,true);}
-},300);};
+const searchMessage=text=>{const message=el('p',text);message.className='search-hint';$('results').replaceChildren(message);};
+$('search').oninput=()=>{
+ clearTimeout(searchTimer);const seq=++searchSeq,query=$('search').value.trim();
+ $('results').hidden=false;
+ if(query.length<2){$('results').replaceChildren();return;}
+ searchMessage('Searching…');
+ searchTimer=setTimeout(async()=>{
+  try{
+   const cards=await api('search',{query});if(seq!==searchSeq)return;
+   $('results').replaceChildren();if(!cards.length){searchMessage('No cards found. Try a name or card number.');return;}
+   cards.forEach(c=>{
+    const n=el('button');n.type='button';n.className='card-result';n.disabled=busy;
+    const visual=el('span','No image');visual.className='card-result-image';
+    try{const url=new URL(c.thumbnailUrl);if(url.protocol==='https:'&&url.hostname==='cdn.snkrdunk.com'){
+     const img=el('img');img.alt=c.name;img.loading='lazy';img.decoding='async';img.referrerPolicy='no-referrer';img.src=url.href;
+     img.onerror=()=>visual.replaceChildren(document.createTextNode('No image'));
+     visual.replaceChildren(img);
+    }}catch{}
+    const label=el('span');label.className='card-result-label';label.append(el('strong',c.name),el('small',[c.productNumber,'#'+c.id].filter(Boolean).join(' · ')),el('span','+ Add card'));
+    n.append(visual,label);n.onclick=()=>{if(busy)return;addCard(c);status('Added '+c.name);};$('results').append(n);
+   });
+  }catch(e){if(seq===searchSeq)searchMessage(e.message+' — type again to retry.');}
+ },300);
+};
+$('search').onkeydown=e=>{if(e.key==='ArrowDown'){const first=$('results').querySelector('button:not(:disabled)');if(first){e.preventDefault();first.focus();}}if(e.key==='Escape'){$('results').hidden=true;}};
+$('search').onfocus=()=>{$('results').hidden=false;};
+$('results').onkeydown=e=>{
+ const buttons=[...$('results').querySelectorAll('button')],i=buttons.indexOf(document.activeElement);
+ if(e.key==='Escape'){e.preventDefault();$('search').focus();$('results').hidden=true;}
+ if(i>=0&&(e.key==='ArrowDown'||e.key==='ArrowUp')){e.preventDefault();const next=i+(e.key==='ArrowDown'?1:-1);if(next<0)$('search').focus();else buttons[Math.min(next,buttons.length-1)].focus();}
+};
 $('addLinks').onclick=()=>task(async()=>{
  const lines=$('links').value.split(/[\n,]+/).map(s=>s.trim()).filter(Boolean);
  if(lines.length>100)throw Error('Add up to 100 links at once.');

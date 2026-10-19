@@ -10,6 +10,7 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
  const live=items.filter(i=>!i.sold&&!i.deleted);const description=live.length?[template.intro,...live.map(i=>template.item.replaceAll('{card}',i.name).replaceAll('{condition}',i.condition).replaceAll('{price}',(i.price/100).toFixed(2)).replaceAll('{link}','https://t.me/testbot?start=listing_'+i.stockId)),template.outro].filter(Boolean).join('\n\n'):'';
  return {...b,items,description,status:b.posted===undefined?'Prepared':b.posted===description?'Posted':'Needs update'};};
  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABQAAAAeCAIAAACjcKk8AAAAHklEQVR4nGPoWNVBNmIY1TyqeVTzqOZRzaOah7NmAIrvDC0dEI/8AAAAAElFTkSuQmCC','base64');
+ await page.route('https://cdn.snkrdunk.com/card.png',route=>route.fulfill({contentType:'image/png',body:png}));
  await page.route('https://moroha29.github.io/card_manager/**',async route=>{
   const name=new URL(route.request().url()).pathname.split('/').pop()||'index.html';
   await route.fulfill({contentType:name.endsWith('.js')?'application/javascript':name.endsWith('.css')?'text/css':'text/html',body:fs.readFileSync(path.join(base,name))});
@@ -23,7 +24,7 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
   else {assert.equal(req.headers().authorization,'Bearer '+'a'.repeat(96));
    if(action==='data')result={drafts,stock,bot:'testbot',totals:{InventoryCost:100,Revenue:0,SoldCost:0,Spent:100,ConsignmentPayout:0},carousell:{template,batches:carousellBatches.map(batchView)}};
    if(action==='search')searchRequests++;
-   if(action==='search')result=[{id:93097,name:'Eevee ex SAR [224/187]'}];
+   if(action==='search')result=[{id:93097,name:'Eevee ex SAR [224/187]',productNumber:'224/187',thumbnailUrl:'https://cdn.snkrdunk.com/card.png'}];
    if(action==='upload')result={photo:'web:'+String(next++).padStart(24,'0')+'.jpg'};
    if(action==='photo'){assert.equal(body.thumbnail,true);photoRequests++;activePhotos++;maxPhotos=Math.max(maxPhotos,activePhotos);await new Promise(resolve=>setTimeout(resolve,15));await route.fulfill({headers,contentType:'image/png',body:png});activePhotos--;return;}
    if(action==='drafts')result=body.rows.map(r=>{const d={...r,revision:r.revision+1};const i=drafts.findIndex(x=>x.id===r.id);if(i<0)drafts.push(d);else drafts[i]=d;return {id:r.id,revision:d.revision};});
@@ -53,7 +54,12 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
  await page.addInitScript(()=>{const create=URL.createObjectURL.bind(URL),revoke=URL.revokeObjectURL.bind(URL);window.livePhotoURLs=new Set();URL.createObjectURL=blob=>{const url=create(blob);window.livePhotoURLs.add(url);return url;};URL.revokeObjectURL=url=>{window.livePhotoURLs.delete(url);revoke(url);};});
  await page.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{value:{writeText:async text=>{window.copiedDescription=text;}}}));
  await page.goto('https://moroha29.github.io/card_manager/');await page.locator('#password').fill('test-password');await page.locator('#loginForm button').click();await page.locator('#workspace').waitFor({state:'visible'});
- await page.locator('#search').fill('Eevee');await page.locator('#results button').click();
+ await page.locator('#search').fill('Eevee');
+ await page.waitForFunction(()=>document.querySelector('#results img')?.naturalWidth>0);
+ assert((await page.locator('#results').innerText()).includes('224/187'));
+ await page.locator('#search').press('ArrowDown');assert.equal(await page.locator('#results button').evaluate(n=>n===document.activeElement),true);
+ await page.keyboard.press('Escape');assert.equal(await page.locator('#results').isVisible(),false);
+ await page.locator('#search').fill('Eeve');await page.locator('#results button').click();
  let row=page.locator('#rows tr').first();await row.locator('input.money').nth(0).fill('100');await row.locator('input.money').nth(1).fill('150');await row.locator('select').focus();
  await row.locator('input.money').nth(0).fill('bad');await row.locator('select').selectOption('LP');
  assert.equal(await row.locator('input.money').nth(0).inputValue(),'bad');

@@ -49,3 +49,13 @@
 .batchActions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.batchCard details{margin:12px 0}.batchCard details input{display:block;width:100%;margin:10px 0}.batchCard details button{margin:0 8px 8px 0}.batchCard a{display:inline-block;max-width:100%;overflow-wrap:anywhere;color:#376c44}.batchCard .hint{overflow-wrap:anywhere}
 #batchDialog label{display:block;margin:14px 0 6px}#batchDialog input,#batchDialog select{width:100%}
 @media(max-width:750px){.tabs{overflow-x:auto}.tabs button{flex:0 0 auto}.batchTemplate,.batchCard{padding:16px}.batchActions button{flex:1}#makeBatch,#unassignedLabel{grid-column:1/-1}#carousellPanel{min-width:0}.batchCard{scroll-margin-top:16px}}
+
+/* Visual catalogue autocomplete; source images are previews, not listing photos. */
+.results{max-height:420px;overscroll-behavior:contain}
+.results .card-result{display:flex;gap:14px;align-items:center;width:100%;padding:10px;min-height:132px;text-align:left}
+.card-result-image{display:flex;align-items:center;justify-content:center;flex:0 0 82px;height:112px;background:#f2f4ef;border-radius:7px;color:#7c8577;font-size:11px}
+.card-result-image img{width:100%;height:100%;object-fit:contain;border-radius:7px}
+.card-result-label{min-width:0;display:grid;gap:7px;overflow-wrap:anywhere}
+.card-result-label strong{font-size:14px;line-height:1.4}.card-result-label small{color:#667065;font-size:12px}.card-result-label>span{font-size:12px;color:#376c44;font-weight:600}
+.search-hint{padding:8px;margin:0;font-size:13px}
+@media(max-width:750px){.results{max-height:48vh}.results .card-result{gap:10px}.card-result-image{flex-basis:76px;height:104px}}
