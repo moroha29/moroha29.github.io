@@ -59,6 +59,9 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
  assert((await page.locator('#results').innerText()).includes('224/187'));
  await page.locator('#search').press('ArrowDown');assert.equal(await page.locator('#results button').evaluate(n=>n===document.activeElement),true);
  await page.keyboard.press('Escape');assert.equal(await page.locator('#results').isVisible(),false);
+ const beforeRepeat=searchRequests;
+ await page.locator('#search').fill('E');assert.equal(await page.locator('#results button').count(),0);
+ await page.locator('#search').fill('Eevee');await page.locator('#results button').waitFor();assert.equal(searchRequests,beforeRepeat,'repeated search must use cache');
  await page.locator('#search').fill('Eeve');await page.locator('#results button').click();
  let row=page.locator('#rows tr').first();await row.locator('input.money').nth(0).fill('100');await row.locator('input.money').nth(1).fill('150');await row.locator('select').focus();
  await row.locator('input.money').nth(0).fill('bad');await row.locator('select').selectOption('LP');

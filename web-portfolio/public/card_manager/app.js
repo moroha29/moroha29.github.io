@@ -24,14 +24,14 @@ const newID=()=>Array.from(crypto.getRandomValues(new Uint8Array(12)),b=>b.toStr
 function status(text,error=false){$('status').textContent=text;$('status').style.background=error?'#8b3535':'#253d2c';}
 function el(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;}
 function lock(value){busy=value;document.querySelectorAll('#workspace button,#workspace input,#workspace select,#workspace textarea').forEach(n=>n.disabled=value||n.dataset.fixed==='true');}
-async function api(path,body={},blob=false){
+async function api(path,body={},blob=false,signal){
  const multipart=body instanceof FormData,requestToken=token;
- const response=await fetch(window.CARD_API_BASE+path,{method:'POST',headers:{...(multipart?{}:{'Content-Type':'application/json'}),...(token?{Authorization:'Bearer '+token}:{})},body:multipart?body:JSON.stringify(body),cache:'no-store'});
+ const response=await fetch(window.CARD_API_BASE+path,{method:'POST',headers:{...(multipart?{}:{'Content-Type':'application/json'}),...(token?{Authorization:'Bearer '+token}:{})},body:multipart?body:JSON.stringify(body),cache:'no-store',signal});
  if(path!=='login'&&requestToken!==token)throw Error('Session changed. Please sign in again.');
  if(!response.ok){const result=await response.json().catch(()=>({error:'Request failed ('+response.status+')'}));if(response.status===401&&path!=='login')signOut(false);throw Error(result.error);}
  return blob?response.blob():response.json();
 }
-function signOut(clear=true){token='';batches=[];template={};templateDirty=false;$('batches').replaceChildren();['templateIntro','templateItem','templateOutro'].forEach(id=>$(id).value='');searchSeq++;clearTimeout(searchTimer);photoLoads.clear();drafts=[];stock=[];selected.clear();dirty.clear();for(const url of photos.values())URL.revokeObjectURL(url);photos.clear();photoSizes.clear();photoBytes=0;photoObserver.disconnect();$('rows').replaceChildren();$('results').replaceChildren();$('workspace').hidden=true;$('login').hidden=false;$('logout').hidden=true;$('password').value='';if(clear)status('Signed out.');}
+function signOut(clear=true){token='';batches=[];template={};templateDirty=false;$('batches').replaceChildren();['templateIntro','templateItem','templateOutro'].forEach(id=>$(id).value='');searchSeq++;clearTimeout(searchTimer);searchAbort?.abort();searchCache.clear();photoLoads.clear();drafts=[];stock=[];selected.clear();dirty.clear();for(const url of photos.values())URL.revokeObjectURL(url);photos.clear();photoSizes.clear();photoBytes=0;photoObserver.disconnect();$('rows').replaceChildren();$('results').replaceChildren();$('workspace').hidden=true;$('login').hidden=false;$('logout').hidden=true;$('password').value='';if(clear)status('Signed out.');}
 async function task(fn){if(busy)return;lock(true);try{await fn();}catch(e){status(e.message,true);}finally{lock(false);if(!$('workspace').hidden)render();}}
 async function load(preserve=false){
  const pending=preserve?[...drafts,...stock].filter(r=>dirty.has(key(r))):[];
@@ -136,16 +136,21 @@ $('filter').oninput=render;
 $('unassigned').onchange=()=>{selected.clear();render();};
 $('all').onchange=()=>{shown().forEach(r=>{$('all').checked?selected.add(key(r)):selected.delete(key(r));});render();};
 function addCard(card,paint=true){const row={id:newID(),revision:0,cardId:card.id,name:card.name,condition:'NM',slab:'',cost:0,price:0,photos:[]};drafts.push(row);dirty.add(key(row));selected.add(key(row));if(paint)render();}
-let searchTimer;
+let searchTimer,searchAbort;
+const searchCache=new Map();
 const searchMessage=text=>{const message=el('p',text);message.className='search-hint';$('results').replaceChildren(message);};
 $('search').oninput=()=>{
- clearTimeout(searchTimer);const seq=++searchSeq,query=$('search').value.trim();
+ clearTimeout(searchTimer);searchAbort?.abort();const seq=++searchSeq,query=$('search').value.trim();
  $('results').hidden=false;
  if(query.length<2){$('results').replaceChildren();return;}
+ const cached=searchCache.get(query.toLowerCase());
  searchMessage('Searching…');
- searchTimer=setTimeout(async()=>{
+ const run=async()=>{
   try{
-   const cards=await api('search',{query});if(seq!==searchSeq)return;
+   searchAbort=new AbortController();
+   const cards=cached&&Date.now()-cached.time<300000?cached.cards:await api('search',{query},false,searchAbort.signal);if(seq!==searchSeq)return;
+   searchCache.delete(query.toLowerCase());searchCache.set(query.toLowerCase(),{cards,time:cached&&Date.now()-cached.time<300000?cached.time:Date.now()});
+   while(searchCache.size>50)searchCache.delete(searchCache.keys().next().value);
    $('results').replaceChildren();if(!cards.length){searchMessage('No cards found. Try a name or card number.');return;}
    cards.forEach(c=>{
     const n=el('button');n.type='button';n.className='card-result';n.disabled=busy;
@@ -158,8 +163,9 @@ $('search').oninput=()=>{
     const label=el('span');label.className='card-result-label';label.append(el('strong',c.name),el('small',[c.productNumber,'#'+c.id].filter(Boolean).join(' · ')),el('span','+ Add card'));
     n.append(visual,label);n.onclick=()=>{if(busy)return;addCard(c);status('Added '+c.name);};$('results').append(n);
    });
-  }catch(e){if(seq===searchSeq)searchMessage(e.message+' — type again to retry.');}
- },300);
+  }catch(e){if(seq===searchSeq&&e.name!=='AbortError')searchMessage(e.message+' — type again to retry.');}
+ };
+ if(cached&&Date.now()-cached.time<300000)run();else searchTimer=setTimeout(run,150);
 };
 $('search').onkeydown=e=>{if(e.key==='ArrowDown'){const first=$('results').querySelector('button:not(:disabled)');if(first){e.preventDefault();first.focus();}}if(e.key==='Escape'){$('results').hidden=true;}};
 $('search').onfocus=()=>{$('results').hidden=false;};
