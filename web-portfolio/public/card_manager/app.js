@@ -292,21 +292,22 @@ $('makeBatch').onclick=()=>task(async()=>{
  tab='carousell';await load(true);status('Batches created. Copy a description to get started.');
 });
 
-let quickCard=null,quickURLs=[];
+let quickCard=null,quickURLs=[],quickPriceManual=false;
 function sameCard(r,c,condition,slab){return r.cardId===c.id&&r.condition===condition&&(condition!=='Slab'||(r.slab||'').trim().toUpperCase()===slab.trim().toUpperCase());}
 function quickMatches(){return [...stock.filter(r=>!r.sold),...drafts].filter(r=>sameCard(r,quickCard,$('quickCondition').value,$('quickSlab').value));}
 function updateQuick(){
  $('quickSlabLabel').hidden=$('quickCondition').value!=='Slab';
  const value=cents($('quickCost').value),jpy=$('quickCurrency').value==='JPY';
  $('quickConverted').textContent=jpy?(entryRate>0?(value===null?'':'Stored cost: S$'+money(Math.round(value/entryRate)))+' · 1 SGD = '+entryRate+' JPY':'Set the JPY conversion rate before adding this card.'):'Cost stays in SGD.';
- const matches=quickMatches();$('quickAverage').textContent=matches.length?matches.length+' matching copies · average cost S$'+money(Math.round(matches.reduce((n,r)=>n+r.cost,0)/matches.length))+' · average asking S$'+money(Math.round(matches.reduce((n,r)=>n+r.price,0)/matches.length)):'';
+ const matches=quickMatches();if(!quickPriceManual)$('quickPrice').value=matches.length?money(Math.round(matches.reduce((n,r)=>n+r.price,0)/matches.length)):'';$('quickAverage').textContent=matches.length?matches.length+' matching copies · average cost S$'+money(Math.round(matches.reduce((n,r)=>n+r.cost,0)/matches.length))+' · average asking S$'+money(Math.round(matches.reduce((n,r)=>n+r.price,0)/matches.length)):'';
 }
 function clearQuickPhotos(){quickURLs.forEach(URL.revokeObjectURL);quickURLs=[];for(const side of ['Front','Back']){$('quick'+side).value='';$('quick'+side+'Preview').hidden=true;$('quick'+side+'Preview').removeAttribute('src');}}
 function openQuickEntry(card){
- quickCard=card;clearQuickPhotos();$('quickName').textContent=card.name;$('quickCost').value='';$('quickError').textContent='';
+ quickCard=card;quickPriceManual=false;clearQuickPhotos();$('quickName').textContent=card.name;$('quickCost').value='';$('quickError').textContent='';
  const matches=quickMatches();$('quickPrice').value=matches.length?money(Math.round(matches.reduce((n,r)=>n+r.price,0)/matches.length)):'';
  updateQuick();$('quickEntry').showModal();$('quickCost').focus();
 }
+$('quickPrice').oninput=()=>{quickPriceManual=true;};
 for(const id of ['quickCost','quickCurrency','quickCondition','quickSlab'])$(id).oninput=updateQuick;
 for(const side of ['Front','Back'])$('quick'+side).onchange=()=>{const file=$('quick'+side).files[0],img=$('quick'+side+'Preview');if(!file){img.hidden=true;return;}const url=URL.createObjectURL(file);quickURLs.push(url);img.src=url;img.hidden=false;};
 $('quickCancel').onclick=()=>{if(busy)return;clearQuickPhotos();$('quickEntry').close();};
