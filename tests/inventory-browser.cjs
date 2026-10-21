@@ -5,6 +5,7 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
  try {
  const page=await browser.newPage({viewport:{width:Number(process.env.INVENTORY_WIDTH||1440),height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
  const base=path.resolve(__dirname,'../web-portfolio/public/card_manager');let drafts=[],stock=[],next=1,failStockId=0,failDeleteId=0,photoRequests=0,activePhotos=0,maxPhotos=0,searchRequests=0,dataRequests=0;
+ let entryRate=0;
  let carousellBatches=[],batchNext=1,template={intro:'Tap a card link → Start in Telegram → view photos or make an offer.',item:'{card} ({condition}) - S${price}\n{link}',outro:'',revision:0};
  const batchView=b=>{const items=b.ids.map(id=>{const row=stock.find(r=>r.stockId===id);return row?{stockId:id,name:row.name,condition:row.condition,price:row.price,sold:row.sold,deleted:false}:{stockId:id,name:'Deleted card',price:0,deleted:true};});
  const live=items.filter(i=>!i.sold&&!i.deleted);const description=live.length?[template.intro,...live.map(i=>template.item.replaceAll('{card}',i.name).replaceAll('{condition}',i.condition).replaceAll('{price}',(i.price/100).toFixed(2)).replaceAll('{link}','https://t.me/testbot?start=listing_'+i.stockId)),template.outro].filter(Boolean).join('\n\n'):'';
@@ -20,12 +21,13 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
   if(req.method()==='OPTIONS'){await route.fulfill({status:204,headers});return;}
   const action=new URL(req.url()).pathname.split('/').pop();
   const body=action==='upload'?{}:req.postDataJSON();let result;
-  if(action==='login'){assert.equal(body.bootstrap,true);result={token:'a'.repeat(96),inventory:{drafts,stock,bot:'testbot',totals:{InventoryCost:100,Revenue:0,SoldCost:0,Spent:100,ConsignmentPayout:0},carousell:{template,batches:carousellBatches.map(batchView)}}};}
+  if(action==='login'){assert.equal(body.bootstrap,true);result={token:'a'.repeat(96),inventory:{jpyPerSgd:entryRate,drafts,stock,bot:'testbot',totals:{InventoryCost:100,Revenue:0,SoldCost:0,Spent:100,ConsignmentPayout:0},carousell:{template,batches:carousellBatches.map(batchView)}}};}
   else {assert.equal(req.headers().authorization,'Bearer '+'a'.repeat(96));
    if(action==='data')dataRequests++;
-   if(action==='data')result={drafts,stock,bot:'testbot',totals:{InventoryCost:100,Revenue:0,SoldCost:0,Spent:100,ConsignmentPayout:0},carousell:{template,batches:carousellBatches.map(batchView)}};
+   if(action==='data')result={jpyPerSgd:entryRate,drafts,stock,bot:'testbot',totals:{InventoryCost:100,Revenue:0,SoldCost:0,Spent:100,ConsignmentPayout:0},carousell:{template,batches:carousellBatches.map(batchView)}};
    if(action==='search')searchRequests++;
    if(action==='search')result=[{id:93097,name:'Eevee ex SAR [224/187]',productNumber:'224/187',thumbnailUrl:'https://cdn.snkrdunk.com/card.png'}];
+   if(action==='settings'){entryRate=body.jpyPerSgd;result={ok:true};}
    if(action==='upload')result={photo:'web:'+String(next++).padStart(24,'0')+'.jpg'};
    if(action==='photo'){assert.equal(body.thumbnail,true);photoRequests++;activePhotos++;maxPhotos=Math.max(maxPhotos,activePhotos);await new Promise(resolve=>setTimeout(resolve,15));await route.fulfill({headers,contentType:'image/png',body:png});activePhotos--;return;}
    if(action==='drafts')result=body.rows.map(r=>{const d={...r,revision:r.revision+1};const i=drafts.findIndex(x=>x.id===r.id);if(i<0)drafts.push(d);else drafts[i]=d;return {id:r.id,revision:d.revision};});
@@ -55,6 +57,7 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
  await page.addInitScript(()=>{const create=URL.createObjectURL.bind(URL),revoke=URL.revokeObjectURL.bind(URL);window.livePhotoURLs=new Set();URL.createObjectURL=blob=>{const url=create(blob);window.livePhotoURLs.add(url);return url;};URL.revokeObjectURL=url=>{window.livePhotoURLs.delete(url);revoke(url);};});
  await page.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{value:{writeText:async text=>{window.copiedDescription=text;}}}));
  await page.goto('https://moroha29.github.io/card_manager/');await page.locator('#password').fill('test-password');await page.locator('#loginForm button').click();await page.locator('#workspace').waitFor({state:'visible'});assert.equal(dataRequests,0,'login should load inventory without another API call');
+ await page.locator('.entrySettings summary').click();await page.locator('#entryRate').fill('100');await page.locator('#saveEntryRate').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('Conversion saved'));
  await page.locator('#search').fill('Eevee');
  await page.waitForFunction(()=>document.querySelector('#results img')?.naturalWidth>0);
  assert((await page.locator('#results').innerText()).includes('224/187'));
@@ -64,17 +67,15 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
  await page.locator('#search').fill('E');assert.equal(await page.locator('#results button').count(),0);
  await page.locator('#search').fill('Eevee');await page.locator('#results button').waitFor();assert.equal(searchRequests,beforeRepeat,'repeated search must use cache');
  await page.locator('#search').fill('Eeve');await page.locator('#results button').click();
+ await page.locator('#quickCurrency').selectOption('JPY');await page.locator('#quickCost').fill('10000');assert((await page.locator('#quickConverted').textContent()).includes('S$100.00'));await page.locator('#quickPrice').fill('150');await page.locator('#quickFront').setInputFiles({name:'front.png',mimeType:'image/png',buffer:png});assert(await page.locator('#quickEntry').evaluate(n=>n.scrollWidth<=n.clientWidth),'quick form overflows');if(process.env.INVENTORY_SCREENSHOT)await page.screenshot({path:process.env.INVENTORY_SCREENSHOT.replace('.png','-entry.png')});await page.locator('#quickAdd').click();await page.waitForFunction(()=>!document.querySelector('#quickEntry').open);
+ assert.equal(await page.locator('#rows tr').first().locator('input.money').first().inputValue(),'100.00');
  let row=page.locator('#rows tr').first();await row.locator('input.money').nth(0).fill('100');await row.locator('input.money').nth(1).fill('150');await row.locator('select').focus();
  await row.locator('input.money').nth(0).fill('bad');await row.locator('select').selectOption('LP');
  assert.equal(await row.locator('input.money').nth(0).inputValue(),'bad');
  await page.locator('#save').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('invalid price'));assert.equal(drafts.length,0);
  await row.locator('input.money').nth(0).fill('100');
- await row.locator('summary').click();
- await row.locator('input[multiple]').setInputFiles(Array.from({length:10},(_,i)=>({name:String(i+1).padStart(2,'0')+'.png',mimeType:'image/png',buffer:png})));
- await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('10 photos ready'));
- await row.locator('summary').click();if(process.env.INVENTORY_SCREENSHOT)await page.screenshot({path:process.env.INVENTORY_SCREENSHOT.replace('.png','-photos.png'),fullPage:true});
  await page.locator('#publish').click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('1 listings published'));
- assert.equal(stock.length,1);assert.equal(stock[0].cost,10000);assert.equal(stock[0].price,15000);assert.equal(stock[0].photos.length,10);
+ assert.equal(stock.length,1);assert.equal(stock[0].cost,10000);assert.equal(stock[0].price,15000);assert.equal(stock[0].photos.length,1);
  await page.locator('[data-tab=stock]').click();row=page.locator('#rows tr').first();await row.locator('input.money').nth(1).fill('160');await row.locator('select').focus();await page.locator('#save').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('Saved'));
  assert.equal(stock[0].price,16000);
  await row.locator('input.money').nth(0).fill('110');
@@ -94,19 +95,19 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
  failDeleteId=0;await page.locator('#remove').click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('#status').textContent==='Deleted selected rows.');assert.equal(stock.length,0);
  searchRequests=0;await page.locator('[data-tab=drafts]').click();await page.locator('#addPanel summary').click();await page.locator('#links').fill('93097\nhttps://snkrdunk.com/apparels/93097');await page.locator('#addLinks').click();await page.waitForFunction(()=>document.querySelectorAll('#rows tr').length===2);
  assert.equal(searchRequests,1,'duplicate links should share catalogue lookup');
- await page.locator('#bulkPhotos').setInputFiles(Array.from({length:10},(_,i)=>({name:'1-'+String(i+1).padStart(2,'0')+'.png',mimeType:'image/png',buffer:png})));
- await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('10 photos matched'));
- assert.equal(await page.locator('#rows tr').first().locator('summary').textContent(),'10/10 photos');
- assert.equal(await page.locator('#rows tr').nth(1).locator('summary').textContent(),'0/10 photos');
+ await page.locator('#bulkPhotos').setInputFiles(Array.from({length:2},(_,i)=>({name:'1-'+String(i+1).padStart(2,'0')+'.png',mimeType:'image/png',buffer:png})));
+ await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('2 photos matched'));
+ assert.equal(await page.locator('#rows tr').first().locator('.allPhotos').textContent(),'2 photo(s)');
+ assert.equal(await page.locator('#rows tr').nth(1).locator('.allPhotos').textContent(),'0 photo(s)');
  for(const width of [320,390,750]){
  await page.setViewportSize({width,height:844});
  assert.equal(await page.locator('#search').isVisible(),true);
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'page overflows phone width '+width);
  const first=page.locator('#rows tr').first();
  assert.equal(await first.locator('input.money').first().evaluate(e=>getComputedStyle(e).fontSize),'16px');
- await first.locator('summary').click();
+
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'expanded photos overflow phone width '+width);
- await first.locator('summary').click();
+
 }
 await page.setViewportSize({width:390,height:844});
 if(process.env.INVENTORY_SCREENSHOT)await page.screenshot({path:process.env.INVENTORY_SCREENSHOT.replace('.png','-mobile.png'),fullPage:true});

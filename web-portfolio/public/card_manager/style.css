@@ -59,3 +59,5 @@
 .card-result-label strong{font-size:14px;line-height:1.4}.card-result-label small{color:#667065;font-size:12px}.card-result-label>span{font-size:12px;color:#376c44;font-weight:600}
 .search-hint{padding:8px;margin:0;font-size:13px}
 @media(max-width:750px){.results{max-height:48vh}.results .card-result{gap:10px}.card-result-image{flex-basis:76px;height:104px}}
+
+.quickFields{display:grid;grid-template-columns:1fr 1fr;gap:12px}.quickFields label{display:grid;gap:6px}.quickFields input,.quickFields select{width:100%;min-width:0}.quickPhotos{display:flex;gap:12px;margin:18px 0}.quickPhotos label{flex:1;min-width:0}.quickPhotos img{display:block;width:100%;height:140px;object-fit:contain;margin-top:10px}#quickError{color:#a13232}#quickEntry{max-height:90dvh;overflow:auto}#quickName{font-size:18px}.entrySettings{margin:12px 0}.entrySettings input{max-width:140px;margin:10px}.quickFields input,.quickFields select{font-size:16px}#quickEntry button{min-height:44px}
