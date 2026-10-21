@@ -136,6 +136,27 @@ function addCard(card,paint=true){const row={id:newID(),revision:0,cardId:card.i
 let searchTimer,searchAbort;
 const searchCache=new Map();
 const searchMessage=text=>{const message=el('p',text);message.className='search-hint';$('results').replaceChildren(message);};
+function appendSearchCards(cards){
+   cards.forEach(c=>{
+    const n=el('button');n.type='button';n.className='card-result';n.disabled=busy;
+    const visual=el('span','No image');visual.className='card-result-image';
+    try{const url=new URL(c.thumbnailUrl);if(url.protocol==='https:'&&url.hostname==='cdn.snkrdunk.com'){
+     const img=el('img');img.alt=c.name;img.loading='lazy';img.decoding='async';img.referrerPolicy='no-referrer';img.src=url.href;
+     img.onerror=()=>visual.replaceChildren(document.createTextNode('No image'));
+     visual.replaceChildren(img);
+    }}catch{}
+    const label=el('span');label.className='card-result-label';label.append(el('strong',c.name),el('small',[c.productNumber,'#'+c.id].filter(Boolean).join(' · ')),el('span','+ Add card'));
+    n.append(visual,label);n.onclick=()=>{if(busy)return;openQuickEntry(c);};$('results').append(n);
+   });
+}
+function addSearchMore(query,seq,offset){
+ const more=el('button','Show more matches');more.className='searchMore';more.type='button';$('results').append(more);
+ more.onclick=async()=>{if(busy||seq!==searchSeq)return;more.disabled=true;more.textContent='Loading…';
+ try{searchAbort=new AbortController();const cards=await api('search',{query,offset},false,searchAbort.signal);if(seq!==searchSeq)return;more.remove();appendSearchCards(cards);if(cards.length===40)addSearchMore(query,seq,offset+40);}
+ catch(e){if(seq===searchSeq&&e.name!=='AbortError'){more.textContent='Retry more matches';status(e.message,true);}}
+ finally{more.disabled=false;}
+ };
+}
 $('search').oninput=()=>{
  clearTimeout(searchTimer);searchAbort?.abort();const seq=++searchSeq,query=$('search').value.trim();
  $('results').hidden=false;
@@ -149,17 +170,8 @@ $('search').oninput=()=>{
    searchCache.delete(query.toLowerCase());searchCache.set(query.toLowerCase(),{cards,time:cached&&Date.now()-cached.time<300000?cached.time:Date.now()});
    while(searchCache.size>50)searchCache.delete(searchCache.keys().next().value);
    $('results').replaceChildren();if(!cards.length){searchMessage('No cards found. Try a name or card number.');return;}
-   cards.forEach(c=>{
-    const n=el('button');n.type='button';n.className='card-result';n.disabled=busy;
-    const visual=el('span','No image');visual.className='card-result-image';
-    try{const url=new URL(c.thumbnailUrl);if(url.protocol==='https:'&&url.hostname==='cdn.snkrdunk.com'){
-     const img=el('img');img.alt=c.name;img.loading='lazy';img.decoding='async';img.referrerPolicy='no-referrer';img.src=url.href;
-     img.onerror=()=>visual.replaceChildren(document.createTextNode('No image'));
-     visual.replaceChildren(img);
-    }}catch{}
-    const label=el('span');label.className='card-result-label';label.append(el('strong',c.name),el('small',[c.productNumber,'#'+c.id].filter(Boolean).join(' · ')),el('span','+ Add card'));
-    n.append(visual,label);n.onclick=()=>{if(busy)return;openQuickEntry(c);};$('results').append(n);
-   });
+   appendSearchCards(cards);if(cards.length===40)addSearchMore(query,seq,40);
+
   }catch(e){if(seq===searchSeq&&e.name!=='AbortError')searchMessage(e.message+' — type again to retry.');}
  };
  if(cached&&Date.now()-cached.time<300000)run();else searchTimer=setTimeout(run,150);

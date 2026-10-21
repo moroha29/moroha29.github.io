@@ -26,7 +26,8 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
    if(action==='data')dataRequests++;
    if(action==='data')result={jpyPerSgd:entryRate,drafts,stock,bot:'testbot',totals:{InventoryCost:100,Revenue:0,SoldCost:0,Spent:100,ConsignmentPayout:0},carousell:{template,batches:carousellBatches.map(batchView)}};
    if(action==='search')searchRequests++;
-   if(action==='search')result=[{id:93097,name:'Eevee ex SAR [224/187]',productNumber:'224/187',thumbnailUrl:'https://cdn.snkrdunk.com/card.png'}];
+   if(action==='search'&&body.query.toLowerCase()==='neo')result=Array.from({length:45},(_,i)=>({id:80000+i,name:'Pikachu Neo '+i,thumbnailUrl:'https://cdn.snkrdunk.com/card.png'})).slice(body.offset||0,(body.offset||0)+40);
+   else if(action==='search')result=[{id:93097,name:'Eevee ex SAR [224/187]',productNumber:'224/187',thumbnailUrl:'https://cdn.snkrdunk.com/card.png'}];
    if(action==='settings'){entryRate=body.jpyPerSgd;result={ok:true};}
    if(action==='upload')result={photo:'web:'+String(next++).padStart(24,'0')+'.jpg'};
    if(action==='photo'){assert.equal(body.thumbnail,true);photoRequests++;activePhotos++;maxPhotos=Math.max(maxPhotos,activePhotos);await new Promise(resolve=>setTimeout(resolve,15));await route.fulfill({headers,contentType:'image/png',body:png});activePhotos--;return;}
@@ -58,6 +59,7 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
  await page.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{value:{writeText:async text=>{window.copiedDescription=text;}}}));
  await page.goto('https://moroha29.github.io/card_manager/');await page.locator('#password').fill('test-password');await page.locator('#loginForm button').click();await page.locator('#workspace').waitFor({state:'visible'});assert.equal(dataRequests,0,'login should load inventory without another API call');
  await page.locator('.entrySettings summary').click();await page.locator('#entryRate').fill('100');await page.locator('#saveEntryRate').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('Conversion saved'));
+ await page.locator('#search').fill('neo');await page.locator('#results .searchMore').waitFor();assert.equal(await page.locator('#results .card-result').count(),40);await page.locator('#results .searchMore').click();await page.waitForFunction(()=>document.querySelectorAll('#results .card-result').length===45);assert.equal(await page.locator('#results .searchMore').count(),0);
  await page.locator('#search').fill('Eevee');
  await page.waitForFunction(()=>document.querySelector('#results img')?.naturalWidth>0);
  assert((await page.locator('#results').innerText()).includes('224/187'));
