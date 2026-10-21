@@ -33,9 +33,9 @@ async function api(path,body={},blob=false,signal){
 }
 function signOut(clear=true){token='';batches=[];template={};templateDirty=false;$('batches').replaceChildren();['templateIntro','templateItem','templateOutro'].forEach(id=>$(id).value='');searchSeq++;clearTimeout(searchTimer);searchAbort?.abort();searchCache.clear();photoLoads.clear();drafts=[];stock=[];selected.clear();dirty.clear();for(const url of photos.values())URL.revokeObjectURL(url);photos.clear();photoSizes.clear();photoBytes=0;photoObserver.disconnect();$('rows').replaceChildren();$('results').replaceChildren();$('workspace').hidden=true;$('login').hidden=false;$('logout').hidden=true;$('password').value='';if(clear)status('Signed out.');}
 async function task(fn){if(busy)return;lock(true);try{await fn();}catch(e){status(e.message,true);}finally{lock(false);if(!$('workspace').hidden)render();}}
-async function load(preserve=false){
+async function load(preserve=false,initialData){
  const pending=preserve?[...drafts,...stock].filter(r=>dirty.has(key(r))):[];
- const data=await api('data');drafts=data.drafts||[];stock=(data.stock||[]).map(r=>({...r,sale:r.sold?r.sale:r.price}));bot=data.bot||bot;batches=data.carousell?.batches||[];if(!templateDirty){template=data.carousell?.template||{};$('templateIntro').value=template.intro||'';$('templateItem').value=template.item||'';$('templateOutro').value=template.outro||'';}selected.clear();dirty.clear();
+ const data=initialData||await api('data');drafts=data.drafts||[];stock=(data.stock||[]).map(r=>({...r,sale:r.sold?r.sale:r.price}));bot=data.bot||bot;batches=data.carousell?.batches||[];if(!templateDirty){template=data.carousell?.template||{};$('templateIntro').value=template.intro||'';$('templateItem').value=template.item||'';$('templateOutro').value=template.outro||'';}selected.clear();dirty.clear();
  const t=data.totals;$('totals').replaceChildren();
  for(const [label,value] of [['Inventory cost',t.InventoryCost],['Sales',t.Revenue],['Realised profit',t.Revenue-t.SoldCost-t.ConsignmentPayout],['Total spent',t.Spent]]){
   const card=el('div',undefined,'stat');card.append(el('span',label),el('strong','$'+money(value)));$('totals').append(card);
@@ -43,7 +43,7 @@ async function load(preserve=false){
  pending.forEach(r=>{const target=r.stockId?stock:drafts;const index=target.findIndex(x=>key(x)===key(r));if(index<0)target.push(r);else target[index]=r;dirty.add(key(r));});
  render();
 }
-$('loginForm').onsubmit=e=>{e.preventDefault();task(async()=>{status('Signing in…');const result=await api('login',{password:$('password').value});token=result.token;$('password').value='';await load();$('login').hidden=true;$('workspace').hidden=false;$('logout').hidden=false;status('Ready.');});};
+$('loginForm').onsubmit=e=>{e.preventDefault();task(async()=>{status('Signing in…');const result=await api('login',{password:$('password').value,bootstrap:true});token=result.token;$('password').value='';status('Loading inventory…');await load(false,result.inventory);$('login').hidden=true;$('workspace').hidden=false;$('logout').hidden=false;status('Ready.');});};
 $('logout').onclick=()=>task(async()=>{await api('logout');signOut();});
 $('refresh').onclick=()=>task(async()=>{if(dirty.size&&!await confirmAction('Reload inventory?','Unsaved changes will be discarded.',[]))return;await load();status('Updated.');});
 function change(r,field,value){

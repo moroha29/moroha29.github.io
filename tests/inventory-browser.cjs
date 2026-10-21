@@ -4,7 +4,7 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
  const browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH||undefined});
  try {
  const page=await browser.newPage({viewport:{width:Number(process.env.INVENTORY_WIDTH||1440),height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
- const base=path.resolve(__dirname,'../web-portfolio/public/card_manager');let drafts=[],stock=[],next=1,failStockId=0,failDeleteId=0,photoRequests=0,activePhotos=0,maxPhotos=0,searchRequests=0;
+ const base=path.resolve(__dirname,'../web-portfolio/public/card_manager');let drafts=[],stock=[],next=1,failStockId=0,failDeleteId=0,photoRequests=0,activePhotos=0,maxPhotos=0,searchRequests=0,dataRequests=0;
  let carousellBatches=[],batchNext=1,template={intro:'Tap a card link → Start in Telegram → view photos or make an offer.',item:'{card} ({condition}) - S${price}\n{link}',outro:'',revision:0};
  const batchView=b=>{const items=b.ids.map(id=>{const row=stock.find(r=>r.stockId===id);return row?{stockId:id,name:row.name,condition:row.condition,price:row.price,sold:row.sold,deleted:false}:{stockId:id,name:'Deleted card',price:0,deleted:true};});
  const live=items.filter(i=>!i.sold&&!i.deleted);const description=live.length?[template.intro,...live.map(i=>template.item.replaceAll('{card}',i.name).replaceAll('{condition}',i.condition).replaceAll('{price}',(i.price/100).toFixed(2)).replaceAll('{link}','https://t.me/testbot?start=listing_'+i.stockId)),template.outro].filter(Boolean).join('\n\n'):'';
@@ -20,8 +20,9 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
   if(req.method()==='OPTIONS'){await route.fulfill({status:204,headers});return;}
   const action=new URL(req.url()).pathname.split('/').pop();
   const body=action==='upload'?{}:req.postDataJSON();let result;
-  if(action==='login'){result={token:'a'.repeat(96)};}
+  if(action==='login'){assert.equal(body.bootstrap,true);result={token:'a'.repeat(96),inventory:{drafts,stock,bot:'testbot',totals:{InventoryCost:100,Revenue:0,SoldCost:0,Spent:100,ConsignmentPayout:0},carousell:{template,batches:carousellBatches.map(batchView)}}};}
   else {assert.equal(req.headers().authorization,'Bearer '+'a'.repeat(96));
+   if(action==='data')dataRequests++;
    if(action==='data')result={drafts,stock,bot:'testbot',totals:{InventoryCost:100,Revenue:0,SoldCost:0,Spent:100,ConsignmentPayout:0},carousell:{template,batches:carousellBatches.map(batchView)}};
    if(action==='search')searchRequests++;
    if(action==='search')result=[{id:93097,name:'Eevee ex SAR [224/187]',productNumber:'224/187',thumbnailUrl:'https://cdn.snkrdunk.com/card.png'}];
@@ -53,7 +54,7 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
  });
  await page.addInitScript(()=>{const create=URL.createObjectURL.bind(URL),revoke=URL.revokeObjectURL.bind(URL);window.livePhotoURLs=new Set();URL.createObjectURL=blob=>{const url=create(blob);window.livePhotoURLs.add(url);return url;};URL.revokeObjectURL=url=>{window.livePhotoURLs.delete(url);revoke(url);};});
  await page.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{value:{writeText:async text=>{window.copiedDescription=text;}}}));
- await page.goto('https://moroha29.github.io/card_manager/');await page.locator('#password').fill('test-password');await page.locator('#loginForm button').click();await page.locator('#workspace').waitFor({state:'visible'});
+ await page.goto('https://moroha29.github.io/card_manager/');await page.locator('#password').fill('test-password');await page.locator('#loginForm button').click();await page.locator('#workspace').waitFor({state:'visible'});assert.equal(dataRequests,0,'login should load inventory without another API call');
  await page.locator('#search').fill('Eevee');
  await page.waitForFunction(()=>document.querySelector('#results img')?.naturalWidth>0);
  assert((await page.locator('#results').innerText()).includes('224/187'));
