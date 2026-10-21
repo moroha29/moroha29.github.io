@@ -304,11 +304,12 @@ $('makeBatch').onclick=()=>task(async()=>{
  tab='carousell';await load(true);status('Batches created. Copy a description to get started.');
 });
 
-let quickCard=null,quickURLs=[],quickPriceManual=false;
+let quickCard=null,quickURLs=[],quickPriceManual=false,quickType="";
+function quickCondition(){return quickType==='slab'?'Slab':$('quickCondition').value;}
 function sameCard(r,c,condition,slab){return r.cardId===c.id&&r.condition===condition&&(condition!=='Slab'||(r.slab||'').trim().toUpperCase()===slab.trim().toUpperCase());}
-function quickMatches(){return [...stock.filter(r=>!r.sold),...drafts].filter(r=>sameCard(r,quickCard,$('quickCondition').value,$('quickSlab').value));}
+function quickMatches(){return [...stock.filter(r=>!r.sold),...drafts].filter(r=>sameCard(r,quickCard,quickCondition(),$('quickSlab').value));}
 function updateQuick(){
- $('quickSlabLabel').hidden=$('quickCondition').value!=='Slab';
+ $('quickSlabLabel').hidden=quickType!=='slab';$('quickConditionLabel').hidden=quickType!=='raw';
  const value=cents($('quickCost').value),jpy=$('quickCurrency').value==='JPY';
  $('quickConverted').textContent=jpy?(entryRate>0?(value===null?'':'Stored cost: S$'+money(Math.round(value/entryRate)))+' · 1 SGD = '+entryRate+' JPY':'Set the JPY conversion rate before adding this card.'):'Cost stays in SGD.';
  const matches=quickMatches();if(!quickPriceManual)$('quickPrice').value=matches.length?money(Math.round(matches.reduce((n,r)=>n+r.price,0)/matches.length)):'';$('quickAverage').textContent=matches.length?matches.length+' matching copies · average cost S$'+money(Math.round(matches.reduce((n,r)=>n+r.cost,0)/matches.length))+' · average asking S$'+money(Math.round(matches.reduce((n,r)=>n+r.price,0)/matches.length)):'';
@@ -317,8 +318,14 @@ function clearQuickPhotos(){quickURLs.forEach(URL.revokeObjectURL);quickURLs=[];
 function openQuickEntry(card){
  quickCard=card;quickPriceManual=false;clearQuickPhotos();$('quickName').textContent=card.name;$('quickCost').value='';$('quickError').textContent='';
  const matches=quickMatches();$('quickPrice').value=matches.length?money(Math.round(matches.reduce((n,r)=>n+r.price,0)/matches.length)):'';
- updateQuick();$('quickEntry').showModal();$('quickCost').focus();
+ quickType='';$('quickTypeStep').hidden=false;$('quickDetails').hidden=true;$('quickAdd').hidden=true;
+ const img=$('quickReference');img.hidden=true;img.removeAttribute('src');img.onerror=()=>{img.hidden=true;};
+ try{const url=new URL(card.thumbnailUrl);if(url.protocol==='https:'&&url.hostname==='cdn.snkrdunk.com'){img.src=url.href;img.hidden=false;}}catch{}
+ updateQuick();$('quickEntry').showModal();$('quickRaw').focus();
 }
+function chooseQuickType(type){quickType=type;$('quickTypeStep').hidden=true;$('quickDetails').hidden=false;$('quickAdd').hidden=false;updateQuick();$(type==='raw'?'quickCondition':'quickSlab').focus();}
+$('quickRaw').onclick=()=>chooseQuickType('raw');$('quickSlabType').onclick=()=>chooseQuickType('slab');
+$('quickChangeType').onclick=()=>{if(busy)return;quickType='';$('quickTypeStep').hidden=false;$('quickDetails').hidden=true;$('quickAdd').hidden=true;};
 $('quickPrice').oninput=()=>{quickPriceManual=true;};
 for(const id of ['quickCost','quickCurrency','quickCondition','quickSlab'])$(id).oninput=updateQuick;
 for(const side of ['Front','Back'])$('quick'+side).onchange=()=>{const file=$('quick'+side).files[0],img=$('quick'+side+'Preview');if(!file){img.hidden=true;return;}const url=URL.createObjectURL(file);quickURLs.push(url);img.src=url;img.hidden=false;};
@@ -334,17 +341,17 @@ async function entryPhoto(file){
  }finally{image.close();}
 }
 $('quickAdd').onclick=async()=>{
- if(busy)return;$('quickError').textContent='';
+ if(busy||!quickType)return;$('quickError').textContent='';
  const cost=cents($('quickCost').value),asking=$('quickPrice').value.trim()===''?0:cents($('quickPrice').value),jpy=$('quickCurrency').value==='JPY';
  if(cost===null||asking===null){$('quickError').textContent='Enter valid prices.';return;}
  if(jpy&&entryRate<=0){$('quickError').textContent='Save a JPY conversion rate first.';return;}
  const files=[$('quickFront').files[0],$('quickBack').files[0]].filter(Boolean);
  if(!$('quickFront').files[0]){$('quickError').textContent='Choose a front photo.';return;}
- if($('quickCondition').value==='Slab'&&!$('quickSlab').value.trim()){$('quickError').textContent='Enter the slab grade.';return;}
+ if(quickCondition()==='Slab'&&!$('quickSlab').value.trim()){$('quickError').textContent='Enter the slab grade.';return;}
  lock(true);$('quickAdd').disabled=true;$('quickCancel').disabled=true;
  try{
   $('quickError').textContent='Preparing photos…';const photoIDs=[];for(const file of files)photoIDs.push(await entryPhoto(file));
-  const row={id:newID(),revision:0,cardId:quickCard.id,name:quickCard.name,condition:$('quickCondition').value,slab:$('quickSlab').value.trim(),cost:jpy?Math.round(cost/entryRate):cost,price:asking,photos:photoIDs};
+  const row={id:newID(),revision:0,cardId:quickCard.id,name:quickCard.name,condition:quickCondition(),slab:quickType==='slab'?$('quickSlab').value.trim():'',cost:jpy?Math.round(cost/entryRate):cost,price:asking,photos:photoIDs};
   drafts.push(row);dirty.add(key(row));selected.add(key(row));clearQuickPhotos();$('quickEntry').close();render();$('search').value='';$('results').replaceChildren();$('search').focus();status('Added. Choose the next card, or Submit selected.');
  }catch(e){$('quickError').textContent=e.message;}finally{lock(false);$('quickAdd').disabled=false;$('quickCancel').disabled=false;}
 };
