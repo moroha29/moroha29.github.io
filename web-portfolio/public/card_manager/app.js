@@ -330,17 +330,19 @@ $('addCustom').onclick=()=>{if(!busy)openQuickEntry({id:0,name:''});};
 $('quickCustomName').oninput=()=>{if(quickCard?.id===0){quickCard.name=$('quickCustomName').value.trim();updateQuick();}};
 $('quickPrice').oninput=()=>{quickPriceManual=true;};
 for(const id of ['quickCost','quickCurrency','quickCondition','quickSlab'])$(id).oninput=updateQuick;
-for(const side of ['Front','Back'])$('quick'+side).onchange=()=>{const file=$('quick'+side).files[0],img=$('quick'+side+'Preview');if(!file){img.hidden=true;return;}const url=URL.createObjectURL(file);quickURLs.push(url);img.src=url;img.hidden=false;};
+for(const side of ['Front','Back'])$('quick'+side).onchange=async()=>{const input=$('quick'+side),file=input.files[0],img=$('quick'+side+'Preview');img.hidden=true;if(!file)return;try{const blob=await portraitBlob(file);if(input.files[0]!==file)return;const url=URL.createObjectURL(blob);quickURLs.push(url);img.src=url;img.hidden=false;}catch(e){$('quickError').textContent=e.message;}};
 $('quickCancel').onclick=()=>{if(busy)return;clearQuickPhotos();$('quickEntry').close();};
 $('quickEntry').oncancel=e=>{if(busy)e.preventDefault();else clearQuickPhotos();};
 $('saveEntryRate').onclick=()=>task(async()=>{const rate=Number($('entryRate').value);if(!Number.isFinite(rate)||rate<=0||rate>10000)throw Error('Enter JPY per SGD, e.g. 115.');await api('settings',{jpyPerSgd:rate});entryRate=Math.round(rate*10000)/10000;status('Conversion saved. Existing costs unchanged.');});
-async function entryPhoto(file){
+async function portraitBlob(file){
  if(!['image/jpeg','image/png'].includes(file.type)||file.size>25*1024*1024)throw Error('Use a JPG/PNG photo up to 25 MB.');
  const image=await createImageBitmap(file);
- try{const scale=Math.min(1,1600/Math.max(image.width,image.height)),canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(image.width*scale));canvas.height=Math.max(1,Math.round(image.height*scale));const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,0,canvas.width,canvas.height);
- const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',0.85));if(!blob)throw Error('Could not prepare photo.');
- const body=new FormData();body.append('photo',blob,'card.jpg');const result=await api('upload',body);cachePhoto(result.photo,blob);return result.photo;
+ try{const scale=Math.min(1,1600/Math.max(image.width,image.height)),canvas=document.createElement('canvas'),rotate=image.width>image.height,w=Math.max(1,Math.round(image.width*scale)),h=Math.max(1,Math.round(image.height*scale));canvas.width=rotate?h:w;canvas.height=rotate?w:h;const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);if(rotate){ctx.translate(h,0);ctx.rotate(Math.PI/2);}ctx.drawImage(image,0,0,w,h);
+ const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',0.85));if(!blob)throw Error('Could not prepare photo.');return blob;
  }finally{image.close();}
+}
+async function entryPhoto(file){
+ const blob=await portraitBlob(file),body=new FormData();body.append('photo',blob,'card.jpg');const result=await api('upload',body);cachePhoto(result.photo,blob);return result.photo;
 }
 $('quickAdd').onclick=async()=>{
  if(busy||!quickType)return;$('quickError').textContent='';
