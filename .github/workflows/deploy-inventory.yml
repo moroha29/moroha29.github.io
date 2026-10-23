@@ -29,7 +29,11 @@ jobs:
       - name: Test inventory user flow
         run: |
           npm install --prefix "$RUNNER_TEMP/inventory-tests" playwright@1.64.1 --no-audit --no-fund
-          "$RUNNER_TEMP/inventory-tests/node_modules/.bin/playwright" install --with-deps chromium
+          if command -v google-chrome >/dev/null 2>&1; then
+            export CHROMIUM_PATH="$(command -v google-chrome)"
+          else
+            "$RUNNER_TEMP/inventory-tests/node_modules/.bin/playwright" install --with-deps chromium
+          fi
           NODE_PATH="$RUNNER_TEMP/inventory-tests/node_modules" INVENTORY_SCREENSHOT="$RUNNER_TEMP/inventory-preview.png" node source/tests/inventory-browser.cjs
           NODE_PATH="$RUNNER_TEMP/inventory-tests/node_modules" INVENTORY_WIDTH=390 INVENTORY_SCREENSHOT="$RUNNER_TEMP/inventory-phone.png" node source/tests/inventory-browser.cjs
       - uses: actions/configure-pages@v5
