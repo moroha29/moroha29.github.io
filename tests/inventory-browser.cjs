@@ -156,6 +156,14 @@ if(process.env.INVENTORY_SCREENSHOT)await page.screenshot({path:process.env.INVE
  await batch.locator('summary').last().click();await batch.locator('[data-action=ungroup]').click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelectorAll('.batchCard').length===2);assert.equal(stock.length,19,'ungroup deleted inventory');
  await page.locator('[data-tab=stock]').click();await page.locator('#unassigned').check();assert.equal(await page.locator('#rows tr').count(),8);
  console.log('PASS: Carousell 9-card batches, copy, badges, templates, sold updates, duplicate prevention and ungroup');
+ await page.locator('[data-tab=drafts]').click();await page.locator('#addCustom').click();
+ await page.locator('#quickCustomName').fill('Eeveelutions nine-card set');await page.locator('#quickRaw').click();
+ await page.locator('#quickCurrency').selectOption('SGD');await page.locator('#quickCost').fill('200');await page.locator('#quickPrice').fill('250');await page.locator('#quickFront').setInputFiles({name:'front.png',mimeType:'image/png',buffer:png});await page.locator('#quickAdd').click();await page.waitForFunction(()=>!document.querySelector('#quickEntry').open);
+ assert.equal(await page.locator('input[aria-label="Custom listing name"]').inputValue(),'Eeveelutions nine-card set');
+ assert.equal(await page.locator('a[href="https://snkrdunk.com/apparels/0"]').count(),0);
+ await page.locator('#publish').click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('1 listings published'));
+ const custom=stock.find(r=>r.cardId===0);assert(custom);assert.equal(custom.name,'Eeveelutions nine-card set');assert.equal(custom.cost,20000);assert.equal(custom.price,25000);
+ console.log('PASS: custom set name, photos, cost and publishing');
  await page.locator('#logout').click();await page.locator('#login').waitFor({state:'visible'});
  assert.equal(await page.evaluate(()=>window.livePhotoURLs.size),0,'logout retained photo cache');
  assert.deepEqual(errors,[]);console.log('PASS: owner login, search, photos, publish, edit, sale, delete and bulk links');
