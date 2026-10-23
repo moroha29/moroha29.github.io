@@ -164,8 +164,17 @@ if(process.env.INVENTORY_SCREENSHOT)await page.screenshot({path:process.env.INVE
  await page.locator('#publish').click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('1 listings published'));
  const custom=stock.find(r=>r.cardId===0);assert(custom);assert.equal(custom.name,'Eeveelutions nine-card set');assert.equal(custom.cost,20000);assert.equal(custom.price,25000);
  console.log('PASS: custom set name, photos, cost and publishing');
+ // A stalled server must unlock the manager without automatically replaying mutations.
+ await page.evaluate(()=>{window.realFetch=window.fetch;window.realTimeout=AbortSignal.timeout;AbortSignal.timeout=()=>window.realTimeout(50);window.fetch=(url,options)=>String(url).endsWith('/data')?new Promise((resolve,reject)=>options.signal.addEventListener('abort',()=>reject(options.signal.reason),{once:true})):window.realFetch(url,options);});
+ await page.locator('#refresh').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('Request timed out'));
+ assert.equal(await page.locator('#refresh').isEnabled(),true,'timeout left manager locked');assert.equal(stock.length,20,'timeout changed inventory');
+ await page.evaluate(()=>{window.fetch=window.realFetch;AbortSignal.timeout=window.realTimeout;});
+ await page.locator('#refresh').click();await page.waitForFunction(()=>document.querySelector('#status').textContent==='Updated.');
+ console.log('PASS: stalled request aborts, unlocks and recovers without duplicate writes');
+ await page.evaluate(()=>{const original=window.fetch;window.fetch=(url,options)=>String(url).endsWith('/logout')?Promise.reject(new TypeError('Network unavailable')):original(url,options);});
  await page.locator('#logout').click();await page.locator('#login').waitFor({state:'visible'});
  assert.equal(await page.evaluate(()=>window.livePhotoURLs.size),0,'logout retained photo cache');
+ console.log('PASS: offline logout clears local inventory and photo cache');
  assert.deepEqual(errors,[]);console.log('PASS: owner login, search, photos, publish, edit, sale, delete and bulk links');
  } finally {await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
