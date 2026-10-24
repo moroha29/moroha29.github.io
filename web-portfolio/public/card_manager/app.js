@@ -107,7 +107,7 @@ function render(){
  $('draftCount').textContent=drafts.length;$('stockCount').textContent=stock.filter(r=>!r.sold).length;$('soldCount').textContent=stock.filter(r=>r.sold).length;
  document.querySelectorAll('[data-tab]').forEach(n=>n.classList.toggle('active',n.dataset.tab===tab));
  $('batchCount').textContent=batches.length;const isBatch=tab==='carousell';['inventoryToolbar','inventoryTable','inventoryHint','context'].forEach(id=>$(id).hidden=isBatch);$('carousellPanel').hidden=!isBatch;$('makeBatch').hidden=tab!=='stock';$('unassignedLabel').hidden=tab!=='stock';if(isBatch)renderBatches();
- $('addPanel').hidden=tab!=='drafts';$('publish').hidden=tab!=='drafts';$('sell').hidden=tab==='drafts';$('save').hidden=tab==='sold';
+ $('addPanel').hidden=tab!=='drafts';$('publish').hidden=tab!=='drafts';$('sell').hidden=tab==='drafts';$('sellTogether').hidden=tab!=='stock';$('save').hidden=tab==='sold';
  $('context').textContent=tab==='drafts'?'Add cards, then Submit selected. One front photo is enough; back is optional.':tab==='sold'?'Sold prices can be corrected. Delete permanently removes the selected cards from accounting totals.':'Edit selected rows and save. Fill in Sold SGD before marking cards sold.';
  const rows=shown();photoObserver.disconnect();$('rows').replaceChildren();$('empty').hidden=rows.length>0;
  rows.forEach((r,index)=>{
@@ -244,6 +244,26 @@ $('publish').onclick=()=>task(async()=>{
  await load(true);
  failed.forEach(r=>{const d=drafts.find(d=>d.id===r.id);if(d)d.error=r.error;});render();
  status((rows.length-failures.size)+' listings published.'+(failures.size?' Some rows failed; check messages.':''),failures.size>0);
+});
+$('sellTogether').onclick=()=>task(async()=>{
+ const rows=picked().sort((a,b)=>a.stockId-b.stockId);
+ if(rows.length<2||rows.length>100)throw Error('Select 2–100 available cards.');
+ if(rows.some(r=>r.sold||r.consignment))throw Error('Select available, non-consigned cards.');
+ if(rows.some(r=>r.stockDirty))throw Error('Save your listing edits first.');
+ const total=await new Promise(resolve=>{
+  $('bundleCount').textContent=rows.length+' cards';$('bundleTotal').value='';$('bundleError').textContent='';$('bundleSale').showModal();$('bundleTotal').focus();
+  const finish=v=>{$('bundleSale').close();resolve(v);};
+  $('bundleCancel').onclick=()=>finish(null);$('bundleSale').oncancel=e=>{e.preventDefault();finish(null);};
+  $('bundleReview').onclick=()=>{const v=cents($('bundleTotal').value);if(v===null||v<=0){$('bundleError').textContent='Enter a positive SGD total.';return;}finish(v);};
+ });
+ if(total===null)return;
+ const sum=rows.reduce((s,r)=>s+BigInt(r.price),0n),amount=BigInt(total);
+ const sales=rows.map(r=>Number(sum?amount*BigInt(r.price)/sum:amount/BigInt(rows.length)));
+ const remainder=total-sales.reduce((a,b)=>a+b,0);for(let i=0;i<remainder;i++)sales[i%rows.length]++;
+ const preview=rows.map((r,i)=>({...r,sale:sales[i]}));
+ if(!await confirmAction('Mark '+rows.length+' cards sold together?','Total SGD '+money(total)+'. Allocated amounts below add up exactly. All cards will be recorded together.',preview))return;
+ await api('bundle-sale',{rows:rows.map(r=>({stockId:r.stockId,revision:r.revision})),total});
+ rows.forEach(r=>dirty.delete(key(r)));await load(true);status(rows.length+' cards sold for SGD '+money(total)+'.');
 });
 $('sell').onclick=()=>task(async()=>{
  const rows=picked();validateRows(rows);

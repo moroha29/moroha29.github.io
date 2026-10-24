@@ -33,6 +33,10 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
    if(action==='photo'){assert.equal(body.thumbnail,true);photoRequests++;activePhotos++;maxPhotos=Math.max(maxPhotos,activePhotos);await new Promise(resolve=>setTimeout(resolve,15));await route.fulfill({headers,contentType:'image/png',body:png});activePhotos--;return;}
    if(action==='drafts')result=body.rows.map(r=>{const d={...r,revision:r.revision+1};const i=drafts.findIndex(x=>x.id===r.id);if(i<0)drafts.push(d);else drafts[i]=d;return {id:r.id,revision:d.revision};});
    if(action==='publish')result=body.rows.map(r=>{const s={...r,id:'',stockId:next++,revision:1,sold:false};stock.push(s);drafts=drafts.filter(x=>x.id!==r.id);return {id:r.id,stockId:s.stockId};});
+   if(action==='bundle-sale'){
+    assert.equal(body.total,25001);assert.equal(body.rows.length,2);
+    body.rows.forEach((r,i)=>{const row=stock.find(s=>s.stockId===r.stockId);row.sold=true;row.sale=i===0?8334:16667;row.photos=[];row.revision++;});result={ok:true};
+   }
    if(action==='stock')result=body.rows.map(r=>{
     if((body.action==='sold'&&r.stockId===failStockId)||(body.action==='delete'&&r.stockId===failDeleteId))return {stockId:r.stockId,error:'listing changed; reload'};
     const i=stock.findIndex(x=>x.stockId===r.stockId);
@@ -119,8 +123,15 @@ if(process.env.INVENTORY_SCREENSHOT)await page.screenshot({path:process.env.INVE
  await page.setViewportSize({width:1440,height:1000});
  await page.screenshot({path:process.env.INVENTORY_SCREENSHOT||'inventory-preview.png',fullPage:true});
  // Large inventories load only nearby previews, and never flood the server.
+ stock=[{stockId:1900,price:10000},{stockId:1901,price:20000}].map(r=>({...r,cardId:93097,name:'Bundle card '+r.stockId,condition:'NM',cost:5000,photos:['front','back'],revision:1,sold:false}));
+ await page.locator('#refresh').click();await page.locator('#confirmYes').click();await page.locator('[data-tab=stock]').click();await page.locator('#all').check();await page.locator('#sellTogether').click();
+ await page.locator('#bundleTotal').fill('bad');await page.locator('#bundleReview').click();assert(await page.locator('#bundleError').textContent());
+ await page.locator('#bundleTotal').fill('250.01');await page.locator('#bundleReview').click();
+ assert((await page.locator('#confirmCards').textContent()).includes('83.34'));assert((await page.locator('#confirmCards').textContent()).includes('166.67'));
+ await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('#status').textContent==='2 cards sold for SGD 250.01.');
+ assert(stock.every(r=>r.sold));assert.equal(stock.reduce((sum,r)=>sum+r.sale,0),25001);console.log('PASS: bulk sale total, validation and allocation preview');
  stock=Array.from({length:100},(_,i)=>({stockId:2000+i,cardId:93097,name:'Eevee '+i,condition:'NM',cost:1,price:2,photos:['lazy-front-'+i,'lazy-back-'+i],revision:1,sold:false}));
- photoRequests=0;maxPhotos=0;await page.locator('[data-tab=stock]').click();await page.locator('#refresh').click();await page.locator('#confirmYes').click();
+ photoRequests=0;maxPhotos=0;await page.locator('[data-tab=stock]').click();await page.locator('#refresh').click();
  await page.waitForFunction(()=>document.querySelectorAll('#rows tr').length===100);await page.locator('#rows tr').first().scrollIntoViewIfNeeded();
  await page.waitForFunction(()=>document.querySelector('#rows img')?.src.startsWith('blob:'));
  await page.waitForTimeout(200);
