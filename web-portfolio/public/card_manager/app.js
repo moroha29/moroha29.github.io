@@ -88,7 +88,7 @@ async function thumb(id,img){
 }
 function photoCell(r,i,load=true){
  const td=el('td'),label=el('label',undefined,'photobox'),img=el('img',undefined,'photo');img.alt=photoLabel(i);img.src='data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
- const id=(r.photos||[])[i];img.decoding='async';if(id&&load){img.dataset.photo=id;photoObserver.observe(img);}
+ const id=(r.photos||[])[i];img.decoding='async';if(id&&load){img.dataset.photo=id;if(photos.has(id))img.src=photos.get(id);else photoObserver.observe(img);}
  label.append(img,el('span',photoLabel(i)+' · '+(id?'Change':'Upload')));
  if(!r.sold&&!r.consignment){const file=el('input');file.type='file';file.accept='image/jpeg,image/png';file.onchange=()=>{if(file.files[0])task(async()=>{await upload(r,i,file.files[0]);render();status('Photo ready. Save the row to keep it.');});};label.append(file);}
  td.className=i===0?'frontPhoto':i===1?'backPhoto':'cornerPhoto';td.append(label);return td;
