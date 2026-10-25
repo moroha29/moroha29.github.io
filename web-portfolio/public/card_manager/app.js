@@ -2,7 +2,7 @@
 (() => {
 const $=id=>document.getElementById(id);
 let token='', tab='drafts', drafts=[], stock=[], selected=new Set(), dirty=new Set(), busy=false, bot='jhcardbot', searchSeq=0;
-let batches=[],template={},templateDirty=false,entryRate=0;
+let batches=[],template={},templateDirty=false,entryRate=0,expenses=[],trades=[];
 const batchFor=r=>batches.find(b=>b.items.some(i=>i.stockId===r.stockId));
 const photos=new Map(),photoLoads=new Map(),photoSizes=new Map();
 let photoBytes=0,activePhotos=0;const photoWaiters=[];
@@ -36,13 +36,14 @@ async function api(path,body={},blob=false,signal){
  }catch(e){if(timeout.aborted)throw Error('Request timed out. Reload inventory before retrying changes.');throw e;}
 }
 
-function signOut(clear=true){token='';$('quickEntry').close();clearQuickPhotos();entryRate=0;quickCard=null;batches=[];template={};templateDirty=false;$('batches').replaceChildren();['templateIntro','templateItem','templateOutro'].forEach(id=>$(id).value='');searchSeq++;clearTimeout(searchTimer);searchAbort?.abort();searchCache.clear();photoLoads.clear();drafts=[];stock=[];selected.clear();dirty.clear();for(const url of photos.values())URL.revokeObjectURL(url);photos.clear();photoSizes.clear();photoBytes=0;photoObserver.disconnect();$('rows').replaceChildren();$('results').replaceChildren();$('workspace').hidden=true;$('login').hidden=false;$('logout').hidden=true;$('password').value='';if(clear)status('Signed out.');}
+function signOut(clear=true){token='';$('quickEntry').close();clearQuickPhotos();entryRate=0;quickCard=null;batches=[];expenses=[];trades=[];$('expenses').replaceChildren();$('trades').replaceChildren();['tradeDialog','expenseDialog'].forEach(id=>$(id).close());template={};templateDirty=false;$('batches').replaceChildren();['templateIntro','templateItem','templateOutro'].forEach(id=>$(id).value='');searchSeq++;clearTimeout(searchTimer);searchAbort?.abort();searchCache.clear();photoLoads.clear();drafts=[];stock=[];selected.clear();dirty.clear();for(const url of photos.values())URL.revokeObjectURL(url);photos.clear();photoSizes.clear();photoBytes=0;photoObserver.disconnect();$('rows').replaceChildren();$('results').replaceChildren();$('workspace').hidden=true;$('login').hidden=false;$('logout').hidden=true;$('password').value='';if(clear)status('Signed out.');}
 async function task(fn){if(busy)return;lock(true);try{await fn();}catch(e){status(e.message,true);}finally{lock(false);if(!$('workspace').hidden)render();}}
 async function load(preserve=false,initialData){
  const pending=preserve?[...drafts,...stock].filter(r=>dirty.has(key(r))):[];
  const data=initialData||await api('data');drafts=data.drafts||[];stock=(data.stock||[]).map(r=>({...r,sale:r.sold?r.sale:r.price}));bot=data.bot||bot;entryRate=data.jpyPerSgd||0;$('entryRate').value=entryRate||'';batches=data.carousell?.batches||[];if(!templateDirty){template=data.carousell?.template||{};$('templateIntro').value=template.intro||'';$('templateItem').value=template.item||'';$('templateOutro').value=template.outro||'';}selected.clear();dirty.clear();
+ expenses=data.expenses||[];trades=data.trades||[];renderAccounting();
  const t=data.totals;$('totals').replaceChildren();
- for(const [label,value] of [['Inventory cost',t.InventoryCost],['Sales',t.Revenue],['Realised profit',t.Revenue-t.SoldCost-t.ConsignmentPayout],['Total spent',t.Spent]]){
+ for(const [label,value] of [['Inventory cost',t.InventoryCost],['Sales',t.Revenue],['Net profit',t.Revenue-t.SoldCost-t.ConsignmentPayout-(t.Expenses||0)],['Expenses',t.Expenses||0],['Stock cost basis',t.Spent]]){
   const card=el('div',undefined,'stat');card.append(el('span',label),el('strong','$'+money(value)));$('totals').append(card);
  }
  pending.forEach(r=>{const target=r.stockId?stock:drafts;const index=target.findIndex(x=>key(x)===key(r));if(index<0)target.push(r);else target[index]=r;dirty.add(key(r));});
@@ -107,7 +108,7 @@ function render(){
  $('draftCount').textContent=drafts.length;$('stockCount').textContent=stock.filter(r=>!r.sold).length;$('soldCount').textContent=stock.filter(r=>r.sold).length;
  document.querySelectorAll('[data-tab]').forEach(n=>n.classList.toggle('active',n.dataset.tab===tab));
  $('batchCount').textContent=batches.length;const isBatch=tab==='carousell';['inventoryToolbar','inventoryTable','inventoryHint','context'].forEach(id=>$(id).hidden=isBatch);$('carousellPanel').hidden=!isBatch;$('makeBatch').hidden=tab!=='stock';$('unassignedLabel').hidden=tab!=='stock';if(isBatch)renderBatches();
- $('addPanel').hidden=tab!=='drafts';$('publish').hidden=tab!=='drafts';$('sell').hidden=tab==='drafts';$('sellTogether').hidden=tab!=='stock';$('save').hidden=tab==='sold';
+ $('addPanel').hidden=tab!=='drafts';$('publish').hidden=tab!=='drafts';$('sell').hidden=tab==='drafts';$('sellTogether').hidden=tab!=='stock';$('trade').hidden=tab!=='stock';$('save').hidden=tab==='sold';
  $('context').textContent=tab==='drafts'?'Add cards, then Submit selected. One front photo is enough; back is optional.':tab==='sold'?'Sold prices can be corrected. Delete permanently removes the selected cards from accounting totals.':'Edit selected rows and save. Fill in Sold SGD before marking cards sold.';
  const rows=shown();photoObserver.disconnect();$('rows').replaceChildren();$('empty').hidden=rows.length>0;
  rows.forEach((r,index)=>{
@@ -117,13 +118,14 @@ function render(){
   if(r.cardId){const isRift=r.cardId>=2000000000;const source=el('a',isRift?'Bilgewater ↗':'SNKRDUNK ↗');source.href=isRift?(r.websiteUrl||'https://bilgewatermarket.com/cards'):('https://snkrdunk.com/apparels/'+r.cardId);source.target='_blank';source.rel='noopener noreferrer';card.append(source);}else{const title=el('input');title.value=r.name;title.maxLength=180;title.setAttribute('aria-label','Custom listing name');title.disabled=r.sold;title.onchange=()=>{r.name=title.value.trim();dirty.add(key(r));render();};card.append(title);}
   const batch=batchFor(r);if(batch){const badge=el('button','Carousell · '+batch.name+' · '+batch.status,'batchBadge');badge.onclick=()=>{tab='carousell';selected.clear();render();document.getElementById('batch-'+batch.id)?.scrollIntoView({block:'start'});};card.append(badge);}
   const group=averages.get(inventoryGroupKey(r));if(group&&group.count+group.sold>1){const parts=[];if(group.count)parts.push(group.count+' copies · avg cost $'+money(Math.round(group.cost/group.count))+' · avg asking $'+money(Math.round(group.price/group.count)));if(group.sold)parts.push(group.sold+' sold · avg sale $'+money(Math.round(group.sales/group.sold)));card.append(el('small',parts.join(' / '),'groupAverages'));}
+  if(r.tradeIn)card.append(el('small','Trade received · cost carried forward'));
   if(r.consignment)card.append(el('small','Consignment · edit details in Telegram'));
   if(r.error)card.append(el('div',r.error,'rowerror'));tr.append(card);
   const cond=el('td',undefined,'conditionCell'),sel=el('select');cond.dataset.label='Condition / grade';sel.setAttribute('aria-label','Condition');
   ['M','NM','LP','MP','HP','Damaged','Slab'].forEach(v=>{const o=el('option',v);o.value=v;sel.append(o);});sel.value=r.condition;sel.disabled=r.sold||r.consignment;if(sel.disabled)sel.dataset.fixed='true';
   sel.onchange=()=>{change(r,'condition',sel.value);render();};cond.append(sel);
   if(r.condition==='Slab'){const grade=el('input');grade.className='grade';grade.placeholder='PSA 10';grade.value=r.slab||'';grade.disabled=r.sold||r.consignment;if(grade.disabled)grade.dataset.fixed='true';grade.onchange=()=>change(r,'slab',grade.value);cond.append(grade);}tr.append(cond);
-  ['cost','price'].forEach(field=>{const cell=el('td',undefined,field+'Cell'),input=moneyInput(r,field);cell.dataset.label=field==='cost'?'Cost SGD · private':'Asking SGD';input.disabled=r.sold||r.consignment;if(input.disabled)input.dataset.fixed='true';cell.append(input);tr.append(cell);});
+  ['cost','price'].forEach(field=>{const cell=el('td',undefined,field+'Cell'),input=moneyInput(r,field);cell.dataset.label=field==='cost'?'Cost SGD · private':'Asking SGD';input.disabled=r.sold||r.consignment||(field==='cost'&&!!r.tradeIn);if(input.disabled)input.dataset.fixed='true';cell.append(input);tr.append(cell);});
   tr.append(photoCell(r,0),photoCell(r,1),detailPhotos(r));
   const sale=el('td',undefined,'saleCell');sale.dataset.label='Sold SGD';if(!r.stockId)sale.classList.add('noSale');if(r.stockId)sale.append(moneyInput(r,'sale'));else sale.textContent='—';tr.append(sale);
   const actions=el('td');
@@ -246,6 +248,42 @@ $('publish').onclick=()=>task(async()=>{
  failed.forEach(r=>{const d=drafts.find(d=>d.id===r.id);if(d)d.error=r.error;});render();
  status((rows.length-failures.size)+' listings published.'+(failures.size?' Some rows failed; check messages.':''),failures.size>0);
 });
+
+function renderAccounting(){
+ $('expenses').replaceChildren();$('trades').replaceChildren();
+ for(const e of expenses){const row=el('p');row.append(el('span',e.date+' · '+e.description+' · S$'+money(e.amount)+' '));const edit=el('button','Edit'),remove=el('button','Delete');edit.onclick=()=>editExpense(e);remove.onclick=()=>task(async()=>{if(!await confirmAction('Delete expense?',e.description+' · S$'+money(e.amount),[]))return;await api('expense',{expense:e,remove:true});await load(true);status('Expense removed.');});row.append(edit,remove);$('expenses').append(row);}
+ for(const t of trades){const d=el('details');d.append(el('summary',t.date.slice(0,10)+' · Trade · cost S$'+money(t.basis)));d.append(el('p','Cash '+(t.cash<0?'received':'paid')+': S$'+money(Math.abs(t.cash))+(t.details.note?' · '+t.details.note:'')));for(const r of t.details.out)d.append(el('p','Gave: '+r.name+' · cost S$'+money(r.cost)));for(const r of t.details.in)d.append(el('p','Received: '+r.name+' · carried cost S$'+money(r.cost)));$('trades').append(d);}
+}
+function editExpense(existing){task(async()=>{
+ const expense=await new Promise(resolve=>{
+  $('expenseDate').value=existing?.date||new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());$('expenseDescription').value=existing?.description||'';$('expenseAmount').value=existing?money(existing.amount):'';$('expenseError').textContent='';$('expenseDialog').showModal();
+  const done=v=>{$('expenseDialog').close();resolve(v);};$('expenseCancel').onclick=()=>done(null);$('expenseDialog').oncancel=e=>{e.preventDefault();done(null);};
+  $('expenseSave').onclick=()=>{const amount=cents($('expenseAmount').value),description=$('expenseDescription').value.trim(),date=$('expenseDate').value;if(amount===null||amount<=0||!description||!date){$('expenseError').textContent='Enter date, description and a positive amount.';return;}done({id:existing?.id||newID(),date,description,amount});};
+ });
+ if(!expense)return;await api('expense',{expense});await load(true);status('Expense saved.');
+});}
+$('addExpense').onclick=()=>editExpense();
+$('trade').onclick=()=>task(async()=>{
+ const outgoing=picked();if(outgoing.some(r=>r.sold||r.consignment))throw Error('Select available cards you own.');
+ if(outgoing.some(r=>dirty.has(key(r))))throw Error('Save outgoing card edits first.');
+ if(!drafts.length)throw Error('Add the cards you will receive in Drafts first, then return here.');
+ if(drafts.some(r=>dirty.has(key(r))))throw Error('Save your incoming drafts first, then return here.');
+ const basis=outgoing.reduce((n,r)=>n+r.cost,0),chosen=new Set();
+ const result=await new Promise(resolve=>{
+  $('tradeSummary').textContent='Giving '+outgoing.length+' cards · original cost S$'+money(basis);$('tradeDrafts').replaceChildren();$('tradeCash').value='0';$('tradeNote').value='';$('tradeError').textContent='';
+  for(const d of drafts){const label=el('label',undefined,'check'),check=el('input');check.type='checkbox';check.onchange=()=>check.checked?chosen.add(d.id):chosen.delete(d.id);label.append(check,el('span',d.name+' · split value S$'+money(d.cost)));$('tradeDrafts').append(label);}
+  const done=v=>{$('tradeDialog').close();resolve(v);};$('tradeCancel').onclick=()=>done(null);$('tradeDialog').oncancel=e=>{e.preventDefault();done(null);};
+  $('tradeReview').onclick=()=>{const value=cents($('tradeCash').value),cash=$('tradeCashMode').value==='received'?-value:value;const incoming=drafts.filter(d=>chosen.has(d.id)).sort((a,b)=>a.id.localeCompare(b.id));if(value===null||!incoming.length||incoming.length>100||basis+cash<0||basis+cash>9999999999){$('tradeError').textContent='Choose 1–100 incoming cards and a valid cash amount. Cash received cannot exceed original cost.';return;}if(incoming.some(d=>!d.photos.length||d.price<=0)){$('tradeError').textContent='Each incoming draft needs a front photo and asking price.';return;}done({incoming,cash,note:$('tradeNote').value.trim()});};
+  $('tradeDialog').showModal();
+ });
+ if(!result)return;
+ const {incoming,cash,note}=result,total=basis+cash,weight=incoming.reduce((n,r)=>n+BigInt(r.cost),0n);
+ const amounts=incoming.map(r=>Number(weight?BigInt(total)*BigInt(r.cost)/weight:BigInt(total)/BigInt(incoming.length)));for(let i=0,left=total-amounts.reduce((a,b)=>a+b,0);i<left;i++)amounts[i%amounts.length]++;
+ const summary='Original cost S$'+money(basis)+' '+(cash<0?'− cash received ':'+ cash paid ')+'S$'+money(Math.abs(cash))+' = S$'+money(total)+' carried forward.\n\n'+incoming.map((r,i)=>r.name+' → cost S$'+money(amounts[i])).join('\n')+'\n\nOutgoing listings will close; incoming listings will be published. No sale is recorded.';
+ if(!await confirmAction('Confirm trade?',summary,[]))return;
+ await api('trade',{id:newID(),out:outgoing.map(r=>({stockId:r.stockId,revision:r.revision})),in:incoming.map(r=>({id:r.id,revision:r.revision})),cash,note});await load();status('Trade recorded. Costs carried into received cards.');
+});
+
 $('sellTogether').onclick=()=>task(async()=>{
  const rows=picked().sort((a,b)=>a.stockId-b.stockId);
  if(rows.length<2||rows.length>100)throw Error('Select 2–100 available cards.');
@@ -277,7 +315,7 @@ $('sell').onclick=()=>task(async()=>{
  status(failed.length?(rows.length-failed.length)+' sold; '+failed.length+' need attention. Refresh and review the failed rows.':'Sales recorded.',failed.length>0);
 });
 $('remove').onclick=()=>task(async()=>{
- const rows=picked();if(!await confirmAction('Delete '+rows.length+' rows?',tab==='drafts'?'Drafts will be discarded.':'This removes selected listings and their amounts from your accounting totals. This cannot be undone here.',rows))return;
+ const rows=picked();if(rows.some(r=>r.tradeIn))throw Error('Trade-linked cards keep their cost history. Record a zero-value sale for a write-off.');if(!await confirmAction('Delete '+rows.length+' rows?',tab==='drafts'?'Drafts will be discarded.':'This removes selected listings and their amounts from your accounting totals. This cannot be undone here.',rows))return;
  const saved=rows.filter(r=>tab!=='drafts'||r.revision>0);
  const result=saved.length?await api(tab==='drafts'?'discard':'stock',{rows:saved.map(payload),action:'delete'}):[];
  const failures=new Set(result.filter(r=>r.error).map(r=>r.id||'stock:'+r.stockId));

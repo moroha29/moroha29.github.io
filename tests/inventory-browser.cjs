@@ -5,7 +5,7 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
  try {
  const page=await browser.newPage({viewport:{width:Number(process.env.INVENTORY_WIDTH||1440),height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
  const base=path.resolve(__dirname,'../web-portfolio/public/card_manager');let drafts=[],stock=[],next=1,failStockId=0,failDeleteId=0,photoRequests=0,activePhotos=0,maxPhotos=0,searchRequests=0,dataRequests=0;
- let entryRate=0;
+ let entryRate=0,expenses=[],trades=[];
  let carousellBatches=[],batchNext=1,template={intro:'Tap a card link → Start in Telegram → view photos or make an offer.',item:'{card} ({condition}) - S${price}\n{link}',outro:'',revision:0};
  const batchView=b=>{const items=b.ids.map(id=>{const row=stock.find(r=>r.stockId===id);return row?{stockId:id,name:row.name,condition:row.condition,price:row.price,sold:row.sold,deleted:false}:{stockId:id,name:'Deleted card',price:0,deleted:true};});
  const live=items.filter(i=>!i.sold&&!i.deleted);const description=live.length?[template.intro,...live.map(i=>template.item.replaceAll('{card}',i.name).replaceAll('{condition}',i.condition).replaceAll('{price}',(i.price/100).toFixed(2)).replaceAll('{link}','https://t.me/testbot?start=listing_'+i.stockId)),template.outro].filter(Boolean).join('\n\n'):'';
@@ -21,10 +21,10 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
   if(req.method()==='OPTIONS'){await route.fulfill({status:204,headers});return;}
   const action=new URL(req.url()).pathname.split('/').pop();
   const body=action==='upload'?{}:req.postDataJSON();let result;
-  if(action==='login'){assert.equal(body.bootstrap,true);result={token:'a'.repeat(96),inventory:{jpyPerSgd:entryRate,drafts,stock,bot:'testbot',totals:{InventoryCost:100,Revenue:0,SoldCost:0,Spent:100,ConsignmentPayout:0},carousell:{template,batches:carousellBatches.map(batchView)}}};}
+  if(action==='login'){assert.equal(body.bootstrap,true);result={token:'a'.repeat(96),inventory:{expenses,trades,jpyPerSgd:entryRate,drafts,stock,bot:'testbot',totals:{InventoryCost:100,Revenue:0,SoldCost:0,Spent:100,ConsignmentPayout:0},carousell:{template,batches:carousellBatches.map(batchView)}}};}
   else {assert.equal(req.headers().authorization,'Bearer '+'a'.repeat(96));
    if(action==='data')dataRequests++;
-   if(action==='data')result={jpyPerSgd:entryRate,drafts,stock,bot:'testbot',totals:{InventoryCost:100,Revenue:0,SoldCost:0,Spent:100,ConsignmentPayout:0},carousell:{template,batches:carousellBatches.map(batchView)}};
+   if(action==='data')result={expenses,trades,jpyPerSgd:entryRate,drafts,stock,bot:'testbot',totals:{InventoryCost:100,Revenue:0,SoldCost:0,Spent:100,ConsignmentPayout:0},carousell:{template,batches:carousellBatches.map(batchView)}};
    if(action==='search')searchRequests++;
    if(action==='search'&&body.query.toLowerCase()==='neo')result=Array.from({length:45},(_,i)=>({id:80000+i,name:'Pikachu Neo '+i,thumbnailUrl:'https://cdn.snkrdunk.com/card.png'})).slice(body.offset||0,(body.offset||0)+40);
    else if(action==='search')result=[{id:93097,name:'Eevee ex SAR [224/187]',productNumber:'224/187',thumbnailUrl:'https://cdn.snkrdunk.com/card.png'}];
@@ -55,6 +55,8 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
      else {if(body.action==='posted')b.posted=batchView(b).description;b.name=body.name;b.url=body.url;b.revision++;}
     }result={ok:true};
    }
+   if(action==='expense'){if(body.remove)expenses=expenses.filter(e=>e.id!==body.expense.id);else{expenses=expenses.filter(e=>e.id!==body.expense.id);expenses.push(body.expense);}result={ok:true};}
+   if(action==='trade'){assert.equal(body.cash,5000);assert.equal(body.out.length,1);assert.equal(body.in.length,2);const outgoing=stock.filter(r=>body.out.some(o=>o.stockId===r.stockId)),incoming=drafts.filter(d=>body.in.some(i=>i.id===d.id));stock=stock.filter(r=>!body.out.some(o=>o.stockId===r.stockId));incoming.forEach((d,i)=>stock.push({...d,stockId:next++,cost:i===0?8334:16666,tradeIn:body.id,sold:false,revision:1}));drafts=[];trades.push({id:body.id,date:'2026-10-25',cash:5000,basis:25000,details:{out:outgoing,in:incoming,note:body.note}});result={ok:true};}
    if(action==='logout')result={ok:true};
   }
   assert.notEqual(result,undefined,action);await route.fulfill({headers,contentType:'application/json',body:JSON.stringify(result)});
@@ -182,6 +184,23 @@ if(process.env.INVENTORY_SCREENSHOT)await page.screenshot({path:process.env.INVE
  await page.evaluate(()=>{window.fetch=window.realFetch;AbortSignal.timeout=window.realTimeout;});
  await page.locator('#refresh').click();await page.waitForFunction(()=>document.querySelector('#status').textContent==='Updated.');
  console.log('PASS: stalled request aborts, unlocks and recovers without duplicate writes');
+
+ // Trade allocation and operating expenses stay private and work on a phone.
+ stock=[{stockId:9001,cardId:93097,name:'Outgoing card',condition:'NM',cost:20000,price:30000,photos:['front'],revision:1,sold:false}];carousellBatches=[];
+ drafts=[{id:'a'.repeat(24),cardId:93097,name:'Incoming A',condition:'NM',cost:10000,price:15000,photos:['front'],revision:1},{id:'b'.repeat(24),cardId:93097,name:'Incoming B',condition:'NM',cost:20000,price:30000,photos:['front'],revision:1}];
+ await page.locator('#refresh').click();await page.waitForFunction(()=>document.querySelector('#draftCount').textContent==='2');
+ await page.locator('[data-tab=stock]').click();await page.locator('#unassigned').uncheck();await page.locator('#all').check();await page.locator('#trade').click();
+ await page.locator('#tradeReview').click();assert((await page.locator('#tradeError').textContent()).includes('Choose'));
+ await page.locator('#tradeDrafts input').nth(0).check();await page.locator('#tradeDrafts input').nth(1).check();await page.locator('#tradeCash').fill('50');
+ assert(await page.locator('#tradeDialog').evaluate(n=>n.scrollWidth<=n.clientWidth),'trade dialog overflows');
+ await page.locator('#tradeReview').click();assert((await page.locator('#confirmText').textContent()).includes('83.34'));assert((await page.locator('#confirmText').textContent()).includes('166.66'));
+ await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('Trade recorded.'));
+ assert.equal(stock.length,2);assert.equal(stock.reduce((n,r)=>n+r.cost,0),25000);assert(await page.locator('#rows .costCell input').first().isDisabled());
+ await page.locator('#accountingPanel>summary').click();await page.locator('#addExpense').click();await page.locator('#expenseDescription').fill('Booth fee');await page.locator('#expenseAmount').fill('0');await page.locator('#expenseSave').click();assert(await page.locator('#expenseError').textContent());
+ await page.locator('#expenseAmount').fill('80');await page.locator('#expenseSave').click();await page.waitForFunction(()=>document.querySelector('#status').textContent==='Expense saved.');assert.equal(expenses[0].amount,8000);
+ await page.locator('#expenses button').filter({hasText:'Edit'}).click();await page.locator('#expenseAmount').fill('75');await page.locator('#expenseSave').click();await page.waitForFunction(()=>document.querySelector('#expenses').textContent.includes('75.00'));assert.equal(expenses.length,1);assert.equal(expenses[0].amount,7500);
+ await page.locator('#expenses button').filter({hasText:'Delete'}).click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('#status').textContent==='Expense removed.');assert.equal(expenses.length,0);
+ console.log('PASS: trade preview, exact cost allocation, locked carried cost, expense validation/edit/delete');
  await page.evaluate(()=>{const original=window.fetch;window.fetch=(url,options)=>String(url).endsWith('/logout')?Promise.reject(new TypeError('Network unavailable')):original(url,options);});
  await page.locator('#logout').click();await page.locator('#login').waitFor({state:'visible'});
  assert.equal(await page.evaluate(()=>window.livePhotoURLs.size),0,'logout retained photo cache');
