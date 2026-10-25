@@ -151,7 +151,7 @@ function appendSearchCards(cards){
      visual.replaceChildren(img);
     }}catch{}
     const label=el('span');label.className='card-result-label';label.append(el('strong',c.name),el('small',[c.productNumber,'#'+c.id].filter(Boolean).join(' · ')),el('span','+ Add card'));
-    if(c.brandId==='riftbound'){const price=c.referencePrice==null?'Unavailable':c.referenceCurrency+' '+Number(c.referencePrice).toFixed(2);label.append(el('small','Bilgewater reference: '+price+(c.referenceObserved?' · '+new Date(c.referenceObserved).toLocaleDateString():'')));}
+    if(c.brandId==='riftbound'){const price=c.referencePrice==null?'Unavailable':c.referenceCurrency+' '+Number(c.referencePrice).toFixed(2);label.append(el('small','Bilgewater reference: '+price+(c.referenceSGD==null?'':' ≈ S$'+Number(c.referenceSGD).toFixed(2)+' (FX '+c.referenceFXDate+', Frankfurter)')+(c.referenceObserved?' · '+new Date(c.referenceObserved).toLocaleDateString():'')));}
     n.append(visual,label);n.onclick=()=>{if(busy)return;openQuickEntry(c);};$('results').append(n);
    });
 }
