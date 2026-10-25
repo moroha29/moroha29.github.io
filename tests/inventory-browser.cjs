@@ -5,12 +5,13 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
  try {
  const page=await browser.newPage({viewport:{width:Number(process.env.INVENTORY_WIDTH||1440),height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
  const base=path.resolve(__dirname,'../web-portfolio/public/card_manager');let drafts=[],stock=[],next=1,failStockId=0,failDeleteId=0,photoRequests=0,activePhotos=0,maxPhotos=0,searchRequests=0,dataRequests=0;
- let entryRate=0,expenses=[],trades=[];
+ let entryRate=0,expenses=[],trades=[],referenceRequests=0;
  let carousellBatches=[],batchNext=1,template={intro:'Tap a card link → Start in Telegram → view photos or make an offer.',item:'{card} ({condition}) - S${price}\n{link}',outro:'',revision:0};
  const batchView=b=>{const items=b.ids.map(id=>{const row=stock.find(r=>r.stockId===id);return row?{stockId:id,name:row.name,condition:row.condition,price:row.price,sold:row.sold,deleted:false}:{stockId:id,name:'Deleted card',price:0,deleted:true};});
  const live=items.filter(i=>!i.sold&&!i.deleted);const description=live.length?[template.intro,...live.map(i=>template.item.replaceAll('{card}',i.name).replaceAll('{condition}',i.condition).replaceAll('{price}',(i.price/100).toFixed(2)).replaceAll('{link}','https://t.me/testbot?start=listing_'+i.stockId)),template.outro].filter(Boolean).join('\n\n'):'';
  return {...b,items,description,status:b.posted===undefined?'Prepared':b.posted===description?'Posted':'Needs update'};};
  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABQAAAAeCAIAAACjcKk8AAAAHklEQVR4nGPoWNVBNmIY1TyqeVTzqOZRzaOah7NmAIrvDC0dEI/8AAAAAElFTkSuQmCC','base64');
+ await page.route('https://bilgewatermarket.com/assets/**',route=>route.fulfill({contentType:'image/png',body:png}));
  await page.route('https://cdn.snkrdunk.com/card.png',route=>route.fulfill({contentType:'image/png',body:png}));
  await page.route('https://moroha29.github.io/card_manager/**',async route=>{
   const name=new URL(route.request().url()).pathname.split('/').pop()||'index.html';
@@ -27,7 +28,9 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
    if(action==='data')result={expenses,trades,jpyPerSgd:entryRate,drafts,stock,bot:'testbot',totals:{InventoryCost:100,Revenue:0,SoldCost:0,Spent:100,ConsignmentPayout:0},carousell:{template,batches:carousellBatches.map(batchView)}};
    if(action==='search')searchRequests++;
    if(action==='search'&&body.query.toLowerCase()==='neo')result=Array.from({length:45},(_,i)=>({id:80000+i,name:'Pikachu Neo '+i,thumbnailUrl:'https://cdn.snkrdunk.com/card.png'})).slice(body.offset||0,(body.offset||0)+40);
+   else if(action==='search'&&body.query.toLowerCase()==='riftbound')result=[{id:2000000001,brandId:'riftbound',name:'Annie EN normal'},{id:2000000002,brandId:'riftbound',name:'Annie CN normal'}];
    else if(action==='search')result=[{id:93097,name:'Eevee ex SAR [224/187]',productNumber:'224/187',thumbnailUrl:'https://cdn.snkrdunk.com/card.png'}];
+   if(action==='reference'){referenceRequests++;result={imageURL:'https://bilgewatermarket.com/assets/'+body.cardId+'.webp'};}
    if(action==='settings'){entryRate=body.jpyPerSgd;result={ok:true};}
    if(action==='upload')result={photo:'web:'+String(next++).padStart(24,'0')+'.jpg'};
    if(action==='photo'){assert.equal(body.thumbnail,true);photoRequests++;activePhotos++;maxPhotos=Math.max(maxPhotos,activePhotos);await new Promise(resolve=>setTimeout(resolve,15));await route.fulfill({headers,contentType:'image/png',body:png});activePhotos--;return;}
@@ -177,6 +180,13 @@ if(process.env.INVENTORY_SCREENSHOT)await page.screenshot({path:process.env.INVE
  await page.locator('#publish').click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('1 listings published'));
  const custom=stock.find(r=>r.cardId===0);assert(custom);assert.equal(custom.name,'Eeveelutions nine-card set');assert.equal(custom.cost,20000);assert.equal(custom.price,25000);
  console.log('PASS: custom set name, photos, cost and publishing');
+
+ await page.locator('[data-tab=drafts]').click();await page.locator('#search').fill('riftbound');
+ await page.waitForFunction(()=>document.querySelectorAll('#results img').length===2&&[...document.querySelectorAll('#results img')].every(i=>i.naturalWidth>0));
+ assert.equal(referenceRequests,2);assert((await page.locator('#results img').nth(1).getAttribute('src')).includes('2000000002'));
+ await page.locator('#results .card-result').nth(1).click();await page.waitForFunction(()=>document.querySelector('#quickReference').naturalWidth>0);
+ assert((await page.locator('#quickReference').getAttribute('src')).includes('2000000002'));assert.equal(referenceRequests,2,'selected card should reuse resolved reference');
+ await page.locator('#quickCancel').click();console.log('PASS: Riftbound lazy language-specific search and selected-card previews');
  // A stalled server must unlock the manager without automatically replaying mutations.
  await page.evaluate(()=>{window.realFetch=window.fetch;window.realTimeout=AbortSignal.timeout;AbortSignal.timeout=()=>window.realTimeout(50);window.fetch=(url,options)=>String(url).endsWith('/data')?new Promise((resolve,reject)=>options.signal.addEventListener('abort',()=>reject(options.signal.reason),{once:true})):window.realFetch(url,options);});
  await page.locator('#refresh').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('Request timed out'));

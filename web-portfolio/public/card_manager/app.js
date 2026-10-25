@@ -36,7 +36,7 @@ async function api(path,body={},blob=false,signal){
  }catch(e){if(timeout.aborted)throw Error('Request timed out. Reload inventory before retrying changes.');throw e;}
 }
 
-function signOut(clear=true){token='';$('quickEntry').close();clearQuickPhotos();entryRate=0;quickCard=null;batches=[];expenses=[];trades=[];$('expenses').replaceChildren();$('trades').replaceChildren();['tradeDialog','expenseDialog','saleEntry'].forEach(id=>$(id).close());template={};templateDirty=false;$('batches').replaceChildren();['templateIntro','templateItem','templateOutro'].forEach(id=>$(id).value='');searchSeq++;clearTimeout(searchTimer);searchAbort?.abort();searchCache.clear();photoLoads.clear();drafts=[];stock=[];selected.clear();dirty.clear();for(const url of photos.values())URL.revokeObjectURL(url);photos.clear();photoSizes.clear();photoBytes=0;photoObserver.disconnect();$('rows').replaceChildren();$('results').replaceChildren();$('workspace').hidden=true;$('login').hidden=false;$('logout').hidden=true;$('password').value='';if(clear)status('Signed out.');}
+function signOut(clear=true){token='';$('quickEntry').close();clearQuickPhotos();entryRate=0;quickCard=null;batches=[];expenses=[];trades=[];$('expenses').replaceChildren();$('trades').replaceChildren();['tradeDialog','expenseDialog','saleEntry'].forEach(id=>$(id).close());template={};templateDirty=false;$('batches').replaceChildren();['templateIntro','templateItem','templateOutro'].forEach(id=>$(id).value='');searchSeq++;clearTimeout(searchTimer);searchAbort?.abort();searchCache.clear();photoLoads.clear();drafts=[];stock=[];selected.clear();dirty.clear();for(const url of photos.values())URL.revokeObjectURL(url);photos.clear();photoSizes.clear();photoBytes=0;photoObserver.disconnect();referenceObserver.disconnect();referenceLoads.clear();$('rows').replaceChildren();$('results').replaceChildren();$('workspace').hidden=true;$('login').hidden=false;$('logout').hidden=true;$('password').value='';if(clear)status('Signed out.');}
 async function task(fn){if(busy)return;lock(true);try{await fn();}catch(e){status(e.message,true);}finally{lock(false);if(!$('workspace').hidden)render();}}
 async function load(preserve=false,initialData){
  const pending=preserve?[...drafts,...stock].filter(r=>dirty.has(key(r))):[];
@@ -143,11 +143,29 @@ function addCard(card,paint=true){const row={id:newID(),revision:0,cardId:card.i
 let searchTimer,searchAbort;
 const searchCache=new Map();
 const searchMessage=text=>{const message=el('p',text);message.className='search-hint';$('results').replaceChildren(message);};
+
+const referenceLoads=new Map(),referenceTargets=new WeakMap();
+const referenceObserver=new IntersectionObserver(entries=>{for(const e of entries)if(e.isIntersecting){referenceObserver.unobserve(e.target);const card=referenceTargets.get(e.target);if(card)loadReference(card,e.target);}}, {rootMargin:'100px'});
+async function referenceURL(card){
+ if(card.thumbnailUrl)return card.thumbnailUrl;
+ if(!referenceLoads.has(card.id)){
+  const session=token;
+  const promise=photoSlot(async()=>{if(session!==token)return '';const result=await api('reference',{cardId:card.id});if(session!==token)return '';const url=new URL(result.imageURL);if(url.protocol!=='https:'||url.hostname!=='bilgewatermarket.com'||!url.pathname.startsWith('/assets/'))return '';card.thumbnailUrl=url.href;return url.href;}).catch(()=>{referenceLoads.delete(card.id);return '';});
+  referenceLoads.set(card.id,promise);
+  if(referenceLoads.size>300)referenceLoads.delete(referenceLoads.keys().next().value);
+ }
+ return referenceLoads.get(card.id);
+}
+async function loadReference(card,target){
+ const url=await referenceURL(card);if(!url||!target.isConnected)return;
+ const img=el('img');img.alt=card.name+' · reference image';img.loading='lazy';img.decoding='async';img.referrerPolicy='no-referrer';img.onerror=()=>target.replaceChildren(el('span','No image'));img.src=url;target.replaceChildren(img);
+}
+
 function appendSearchCards(cards){
    cards.forEach(c=>{
     const n=el('button');n.type='button';n.className='card-result';n.disabled=busy;
-    const visual=el('span','No image');visual.className='card-result-image';
-    try{const url=new URL(c.thumbnailUrl);if(url.protocol==='https:'&&url.hostname==='cdn.snkrdunk.com'){
+    const visual=el('span','No image');visual.className='card-result-image';if(c.brandId==='riftbound'&&!c.thumbnailUrl){referenceTargets.set(visual,c);referenceObserver.observe(visual);}
+    try{const url=new URL(c.thumbnailUrl);if(url.protocol==='https:'&&(url.hostname==='cdn.snkrdunk.com'||(url.hostname==='bilgewatermarket.com'&&url.pathname.startsWith('/assets/')))){
      const img=el('img');img.alt=c.name;img.loading='lazy';img.decoding='async';img.referrerPolicy='no-referrer';img.src=url.href;
      img.onerror=()=>visual.replaceChildren(document.createTextNode('No image'));
      visual.replaceChildren(img);
@@ -166,7 +184,7 @@ function addSearchMore(query,seq,offset){
  };
 }
 $('search').oninput=()=>{
- clearTimeout(searchTimer);searchAbort?.abort();const seq=++searchSeq,query=$('search').value.trim();
+ referenceObserver.disconnect();clearTimeout(searchTimer);searchAbort?.abort();const seq=++searchSeq,query=$('search').value.trim();
  $('results').hidden=false;
  if(query.length<2){$('results').replaceChildren();return;}
  const cached=searchCache.get(query.toLowerCase());
@@ -393,8 +411,8 @@ function openQuickEntry(card){
  quickCard=card;$('quickCustomLabel').hidden=card.id!==0;$('quickCustomName').value=card.id===0?card.name:'';quickPriceManual=false;clearQuickPhotos();$('quickName').textContent=card.name||'Custom listing / set';$('quickCost').value='';$('quickError').textContent='';
  const matches=quickMatches();$('quickPrice').value=matches.length?money(Math.round(matches.reduce((n,r)=>n+r.price,0)/matches.length)):'';
  quickType='';$('quickTypeStep').hidden=false;$('quickDetails').hidden=true;$('quickAdd').hidden=true;
- const img=$('quickReference');img.hidden=true;img.removeAttribute('src');img.onerror=()=>{img.hidden=true;};
- try{const url=new URL(card.thumbnailUrl);if(url.protocol==='https:'&&url.hostname==='cdn.snkrdunk.com'){img.src=url.href;img.hidden=false;}}catch{}
+ const img=$('quickReference');img.hidden=true;img.removeAttribute('src');img.onerror=()=>{img.hidden=true;};if(card.brandId==='riftbound'&&!card.thumbnailUrl){referenceURL(card).then(url=>{if(url&&quickCard===card&&$('quickEntry').open){img.src=url;img.hidden=false;}});}
+ try{const url=new URL(card.thumbnailUrl);if(url.protocol==='https:'&&(url.hostname==='cdn.snkrdunk.com'||(url.hostname==='bilgewatermarket.com'&&url.pathname.startsWith('/assets/')))){img.src=url.href;img.hidden=false;}}catch{}
  updateQuick();$('quickEntry').showModal();$('quickRaw').focus();
 }
 function chooseQuickType(type){quickType=type;$('quickTypeStep').hidden=true;$('quickDetails').hidden=false;$('quickAdd').hidden=false;updateQuick();$(type==='raw'?'quickCondition':'quickSlab').focus();}
