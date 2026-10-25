@@ -36,7 +36,7 @@ async function api(path,body={},blob=false,signal){
  }catch(e){if(timeout.aborted)throw Error('Request timed out. Reload inventory before retrying changes.');throw e;}
 }
 
-function signOut(clear=true){token='';$('quickEntry').close();clearQuickPhotos();entryRate=0;quickCard=null;batches=[];expenses=[];trades=[];$('expenses').replaceChildren();$('trades').replaceChildren();['tradeDialog','expenseDialog'].forEach(id=>$(id).close());template={};templateDirty=false;$('batches').replaceChildren();['templateIntro','templateItem','templateOutro'].forEach(id=>$(id).value='');searchSeq++;clearTimeout(searchTimer);searchAbort?.abort();searchCache.clear();photoLoads.clear();drafts=[];stock=[];selected.clear();dirty.clear();for(const url of photos.values())URL.revokeObjectURL(url);photos.clear();photoSizes.clear();photoBytes=0;photoObserver.disconnect();$('rows').replaceChildren();$('results').replaceChildren();$('workspace').hidden=true;$('login').hidden=false;$('logout').hidden=true;$('password').value='';if(clear)status('Signed out.');}
+function signOut(clear=true){token='';$('quickEntry').close();clearQuickPhotos();entryRate=0;quickCard=null;batches=[];expenses=[];trades=[];$('expenses').replaceChildren();$('trades').replaceChildren();['tradeDialog','expenseDialog','saleEntry'].forEach(id=>$(id).close());template={};templateDirty=false;$('batches').replaceChildren();['templateIntro','templateItem','templateOutro'].forEach(id=>$(id).value='');searchSeq++;clearTimeout(searchTimer);searchAbort?.abort();searchCache.clear();photoLoads.clear();drafts=[];stock=[];selected.clear();dirty.clear();for(const url of photos.values())URL.revokeObjectURL(url);photos.clear();photoSizes.clear();photoBytes=0;photoObserver.disconnect();$('rows').replaceChildren();$('results').replaceChildren();$('workspace').hidden=true;$('login').hidden=false;$('logout').hidden=true;$('password').value='';if(clear)status('Signed out.');}
 async function task(fn){if(busy)return;lock(true);try{await fn();}catch(e){status(e.message,true);}finally{lock(false);if(!$('workspace').hidden)render();}}
 async function load(preserve=false,initialData){
  const pending=preserve?[...drafts,...stock].filter(r=>dirty.has(key(r))):[];
@@ -306,7 +306,17 @@ $('sellTogether').onclick=()=>task(async()=>{
 });
 $('sell').onclick=()=>task(async()=>{
  const rows=picked();validateRows(rows);
- if(!await confirmAction('Mark '+rows.length+' cards sold?','Check Sold SGD below. Unsaved listing edits will be saved first. Topic posts will be retired.',rows))return;
+ const prices=await new Promise(resolve=>{
+  $('saleInputs').replaceChildren();$('saleError').textContent='';const inputs=[];
+  for(const r of rows){const label=el('label',r.name+' · asking S$'+money(r.price)),input=el('input');input.inputMode='decimal';input.placeholder='Actual sold price';input.setAttribute('aria-label','Sale price for '+r.name);input.value=r.saleDirty||r.sold?money(r.sale):'';label.append(input);$('saleInputs').append(label);inputs.push(input);}
+  const done=v=>{$('saleEntry').close();resolve(v);};$('saleCancel').onclick=()=>done(null);$('saleEntry').oncancel=e=>{e.preventDefault();done(null);};
+  $('saleReview').onclick=()=>{const values=inputs.map(input=>input.value.trim()===''?null:cents(input.value));if(values.some(v=>v===null)){$('saleError').textContent='Enter a valid SGD price for every card. Use 0 only for a write-off.';return;}done(values);};
+  $('saleEntry').showModal();inputs[0]?.focus();
+ });
+ if(!prices)return;
+ const preview=rows.map((r,i)=>({...r,sale:prices[i]}));
+ if(!await confirmAction('Mark '+rows.length+' cards sold?','Check your actual sale prices below. Topic posts will be retired.',preview))return;
+ rows.forEach((r,i)=>{r.sale=prices[i];r.saleDirty=true;dirty.add(key(r));});
  const edits=rows.filter(r=>r.stockDirty&&!r.sold&&!r.consignment);
  if(edits.length&&!await saveRows(edits)){status('Fix the row errors before recording sales.',true);return;}
  const result=await api('stock',{rows:rows.map(payload),action:'sold'});const failed=[];
