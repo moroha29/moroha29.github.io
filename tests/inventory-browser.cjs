@@ -33,6 +33,7 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
    if(action==='reference'){referenceRequests++;result={imageURL:'https://bilgewatermarket.com/assets/'+body.cardId+'.webp'};}
    if(action==='settings'){entryRate=body.jpyPerSgd;result={ok:true};}
    if(action==='rotate'){assert.equal(body.degrees,90);assert(body.photo);result={photo:'web:'+String(next++).padStart(24,'0')+'.jpg'};}
+   if(action==='upload'){assert(route.request().postDataBuffer().length<5*1024*1024,'photo must be resized before upload');assert(route.request().postData().includes('name="prepared"'),'prepared orientation flag missing');}
    if(action==='upload')result={photo:'web:'+String(next++).padStart(24,'0')+'.jpg'};
    if(action==='photo'){assert.equal(body.thumbnail,true);photoRequests++;activePhotos++;maxPhotos=Math.max(maxPhotos,activePhotos);await new Promise(resolve=>setTimeout(resolve,15));await route.fulfill({headers,contentType:'image/png',body:png});activePhotos--;return;}
    if(action==='drafts')result=body.rows.map(r=>{const d={...r,revision:r.revision+1};const i=drafts.findIndex(x=>x.id===r.id);if(i<0)drafts.push(d);else drafts[i]=d;return {id:r.id,revision:d.revision};});
@@ -111,7 +112,7 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
  failDeleteId=0;await page.locator('#remove').click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('#status').textContent==='Deleted selected rows.');assert.equal(stock.length,0);
  searchRequests=0;await page.locator('[data-tab=drafts]').click();await page.locator('#addPanel summary').click();await page.locator('#links').fill('93097\nhttps://snkrdunk.com/apparels/93097');await page.locator('#addLinks').click();await page.waitForFunction(()=>document.querySelectorAll('#rows tr').length===2);
  assert.equal(searchRequests,1,'duplicate links should share catalogue lookup');
- await page.locator('#bulkPhotos').setInputFiles(Array.from({length:2},(_,i)=>({name:'1-'+String(i+1).padStart(2,'0')+'.png',mimeType:'image/png',buffer:png})));
+ await page.locator('#bulkPhotos').setInputFiles(Array.from({length:2},(_,i)=>({name:'1-'+String(i+1).padStart(2,'0')+'.png',mimeType:'image/png',buffer:Buffer.concat([png,Buffer.alloc(6*1024*1024)])})));
  await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('2 photos matched'));
  assert.equal(await page.locator('.allPhotos,.saleCell').count(),0);
  assert.equal(await page.locator('#inventoryTable th').count(),8);
@@ -176,7 +177,13 @@ if(process.env.INVENTORY_SCREENSHOT)await page.screenshot({path:process.env.INVE
  console.log('PASS: Carousell 9-card batches, copy, badges, templates, sold updates, duplicate prevention and ungroup');
  await page.locator('[data-tab=drafts]').click();await page.locator('#addCustom').click();
  await page.locator('#quickCustomName').fill('Eeveelutions nine-card set');await page.locator('#quickRaw').click();
- await page.locator('#quickCurrency').selectOption('SGD');await page.locator('#quickCost').fill('200');await page.locator('#quickPrice').fill('250');await page.locator('#quickFront').setInputFiles({name:'front.png',mimeType:'image/png',buffer:png});await page.locator('#quickAdd').click();await page.waitForFunction(()=>!document.querySelector('#quickEntry').open);
+ await page.locator('#quickCurrency').selectOption('SGD');await page.locator('#quickCost').fill('200');await page.locator('#quickPrice').fill('250');const largePhoto=await page.evaluate(async()=>{const c=document.createElement('canvas');c.width=100;c.height=200;const x=c.getContext('2d');x.fillStyle='red';x.fillRect(0,0,100,100);x.fillStyle='blue';x.fillRect(0,100,100,100);const b=await new Promise(r=>c.toBlob(r,'image/png'));return Array.from(new Uint8Array(await b.arrayBuffer()));});
+ await page.locator('#quickFront').setInputFiles({name:'large.png',mimeType:'image/png',buffer:Buffer.concat([Buffer.from(largePhoto),Buffer.alloc(6*1024*1024)])});
+ await page.locator('#quickFrontRotate').waitFor({state:'visible'});await page.locator('#quickFrontRotate').click();
+ await page.waitForFunction(()=>!document.querySelector('#quickFrontRotate').disabled&&document.querySelector('#quickFrontPreview').naturalWidth===200);
+ await page.locator('#quickFrontRotate').click();await page.waitForFunction(()=>!document.querySelector('#quickFrontRotate').disabled&&document.querySelector('#quickFrontPreview').naturalHeight===200);
+ assert(await page.evaluate(()=>{const c=document.createElement('canvas');c.width=100;c.height=200;const x=c.getContext('2d');x.drawImage(document.querySelector('#quickFrontPreview'),0,0);const p=x.getImageData(20,20,1,1).data;return p[2]>p[0];}),'rotation preview must show blue at top');
+ await page.locator('#quickAdd').click();await page.waitForFunction(()=>!document.querySelector('#quickEntry').open);
  assert.equal(await page.locator('input[aria-label="Custom listing name"]').inputValue(),'Eeveelutions nine-card set');
  assert.equal(await page.locator('a[href="https://snkrdunk.com/apparels/0"]').count(),0);
  await page.locator('#publish').click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('1 listings published'));

@@ -217,12 +217,11 @@ $('addLinks').onclick=()=>task(async()=>{
  status(added+' rows added.'+(failures.length?' '+failures.length+' unmatched links left to review.':''),failures.length>0);
 });
 async function upload(row,index,file){
- if(!['image/jpeg','image/png'].includes(file.type)||file.size>5*1024*1024)throw Error('Use JPG/PNG photos up to 5 MB.');
- const body=new FormData();body.append('photo',file);const result=await api('upload',body);
+ const photo=await entryPhoto(file);const result={photo};
  const copy=[...(row.photos||[])];copy[index]=result.photo;
  // A back photo can be chosen before the front; keep the empty front slot visible.
  for(let i=0;i<copy.length;i++)if(!copy[i])copy[i]='';
- change(row,'photos',copy);cachePhoto(result.photo,file);
+ change(row,'photos',copy);
 }
 $('bulkPhotos').onchange=()=>task(async()=>{
  let count=0;const errors=[];const seen=new Set();
@@ -390,7 +389,7 @@ $('makeBatch').onclick=()=>task(async()=>{
  tab='carousell';await load(true);status('Batches created. Copy a description to get started.');
 });
 
-let quickCard=null,quickURLs=[],quickPriceManual=false,quickType="";
+let quickPhotosState={},quickCard=null,quickURLs=[],quickPriceManual=false,quickType="";
 function quickCondition(){return quickType==='slab'?'Slab':$('quickCondition').value;}
 function sameCard(r,c,condition,slab){return r.cardId===c.id&&(c.id!==0||r.name.trim().toLowerCase()===c.name.trim().toLowerCase())&&r.condition===condition&&(condition!=='Slab'||(r.slab||'').trim().toUpperCase()===slab.trim().toUpperCase());}
 function quickMatches(){return [...stock.filter(r=>!r.sold),...drafts].filter(r=>sameCard(r,quickCard,quickCondition(),$('quickSlab').value));}
@@ -400,7 +399,7 @@ function updateQuick(){
  $('quickConverted').textContent=jpy?(entryRate>0?(value===null?'':'Stored cost: S$'+money(Math.round(value/entryRate)))+' · 1 SGD = '+entryRate+' JPY':'Set the JPY conversion rate before adding this card.'):'Cost stays in SGD.';
  const matches=quickMatches();if(!quickPriceManual)$('quickPrice').value=matches.length?money(Math.round(matches.reduce((n,r)=>n+r.price,0)/matches.length)):'';$('quickAverage').textContent=matches.length?matches.length+' matching copies · average cost S$'+money(Math.round(matches.reduce((n,r)=>n+r.cost,0)/matches.length))+' · average asking S$'+money(Math.round(matches.reduce((n,r)=>n+r.price,0)/matches.length)):'';
 }
-function clearQuickPhotos(){quickURLs.forEach(URL.revokeObjectURL);quickURLs=[];for(const side of ['Front','Back']){$('quick'+side).value='';$('quick'+side+'Preview').hidden=true;$('quick'+side+'Preview').removeAttribute('src');}}
+function clearQuickPhotos(){quickPhotosState={};for(const side of ['Front','Back'])$('quick'+side+'Rotate').hidden=true;quickURLs.forEach(URL.revokeObjectURL);quickURLs=[];for(const side of ['Front','Back']){$('quick'+side).value='';$('quick'+side+'Preview').hidden=true;$('quick'+side+'Preview').removeAttribute('src');}}
 function openQuickEntry(card){
  quickCard=card;$('quickCustomLabel').hidden=card.id!==0;$('quickCustomName').value=card.id===0?card.name:'';quickPriceManual=false;clearQuickPhotos();$('quickName').textContent=card.name||'Custom listing / set';$('quickCost').value='';$('quickError').textContent='';
  const matches=quickMatches();$('quickPrice').value=matches.length?money(Math.round(matches.reduce((n,r)=>n+r.price,0)/matches.length)):'';
@@ -416,7 +415,30 @@ $('addCustom').onclick=()=>{if(!busy)openQuickEntry({id:0,name:''});};
 $('quickCustomName').oninput=()=>{if(quickCard?.id===0){quickCard.name=$('quickCustomName').value.trim();updateQuick();}};
 $('quickPrice').oninput=()=>{quickPriceManual=true;};
 for(const id of ['quickCost','quickCurrency','quickCondition','quickSlab'])$(id).oninput=updateQuick;
-for(const side of ['Front','Back'])$('quick'+side).onchange=async()=>{const input=$('quick'+side),file=input.files[0],img=$('quick'+side+'Preview');img.hidden=true;if(!file)return;try{const blob=await portraitBlob(file);if(input.files[0]!==file)return;const url=URL.createObjectURL(blob);quickURLs.push(url);img.src=url;img.hidden=false;}catch(e){$('quickError').textContent=e.message;}};
+function showQuickPhoto(side,record){
+ if(quickPhotosState[side]!==record||!$('quickEntry').open)return;
+ if(record.url){URL.revokeObjectURL(record.url);quickURLs=quickURLs.filter(u=>u!==record.url);}
+ record.url=URL.createObjectURL(record.blob);quickURLs.push(record.url);
+ const img=$('quick'+side+'Preview');img.src=record.url;img.hidden=false;
+ $('quick'+side+'Rotate').hidden=false;$('quick'+side+'Rotate').disabled=false;
+}
+for(const side of ['Front','Back']){
+ $('quick'+side).onchange=()=>{
+  const file=$('quick'+side).files[0],record={file};quickPhotosState[side]=record;
+  $('quick'+side+'Preview').hidden=true;$('quick'+side+'Rotate').hidden=true;$('quickError').textContent='';
+  if(!file)return;
+  record.job=portraitBlob(file).then(blob=>{record.blob=blob;record.error=null;showQuickPhoto(side,record);}).catch(e=>{record.error=e.message;if(quickPhotosState[side]===record)$('quickError').textContent=e.message;});
+ };
+ $('quick'+side+'Rotate').onclick=()=>{
+  const record=quickPhotosState[side];if(busy||!record?.blob)return;
+  $('quick'+side+'Rotate').disabled=true;
+  record.job=turnPhoto(record.blob).then(blob=>{record.blob=blob;record.error=null;showQuickPhoto(side,record);}).catch(e=>{record.error=e.message;if(quickPhotosState[side]===record){$('quickError').textContent=e.message;$('quick'+side+'Rotate').disabled=false;}});
+ };
+}
+async function turnPhoto(blob){
+ const image=await createImageBitmap(blob);
+ try{const canvas=document.createElement('canvas');canvas.width=image.height;canvas.height=image.width;const ctx=canvas.getContext('2d');ctx.translate(canvas.width,0);ctx.rotate(Math.PI/2);ctx.drawImage(image,0,0);const result=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',0.9));if(!result)throw Error('Could not rotate photo.');return result;}finally{image.close();}
+}
 $('quickCancel').onclick=()=>{if(busy)return;clearQuickPhotos();$('quickEntry').close();};
 $('quickEntry').oncancel=e=>{if(busy)e.preventDefault();else clearQuickPhotos();};
 $('saveEntryRate').onclick=()=>task(async()=>{const rate=Number($('entryRate').value);if(!Number.isFinite(rate)||rate<=0||rate>10000)throw Error('Enter JPY per SGD, e.g. 115.');await api('settings',{jpyPerSgd:rate});entryRate=Math.round(rate*10000)/10000;status('Conversion saved. Existing costs unchanged.');});
@@ -427,8 +449,8 @@ async function portraitBlob(file){
  const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',0.85));if(!blob)throw Error('Could not prepare photo.');return blob;
  }finally{image.close();}
 }
-async function entryPhoto(file){
- const blob=await portraitBlob(file),body=new FormData();body.append('photo',blob,'card.jpg');const result=await api('upload',body);cachePhoto(result.photo,blob);return result.photo;
+async function entryPhoto(file,prepared=false){
+ const blob=prepared?file:await portraitBlob(file),body=new FormData();body.append('photo',blob,'card.jpg');body.append('prepared','true');const result=await api('upload',body);cachePhoto(result.photo,blob);return result.photo;
 }
 $('quickAdd').onclick=async()=>{
  if(busy||!quickType)return;$('quickError').textContent='';
@@ -436,12 +458,12 @@ $('quickAdd').onclick=async()=>{
  const cost=cents($('quickCost').value),asking=$('quickPrice').value.trim()===''?0:cents($('quickPrice').value),jpy=$('quickCurrency').value==='JPY';
  if(cost===null||asking===null){$('quickError').textContent='Enter valid prices.';return;}
  if(jpy&&entryRate<=0){$('quickError').textContent='Save a JPY conversion rate first.';return;}
- const files=[$('quickFront').files[0],$('quickBack').files[0]].filter(Boolean);
+ const records=['Front','Back'].map(side=>quickPhotosState[side]).filter(r=>r?.file);
  if(!$('quickFront').files[0]){$('quickError').textContent='Choose a front photo.';return;}
  if(quickCondition()==='Slab'&&!$('quickSlab').value.trim()){$('quickError').textContent='Enter the slab grade.';return;}
  lock(true);$('quickAdd').disabled=true;$('quickCancel').disabled=true;
  try{
-  $('quickError').textContent='Preparing photos…';const photoIDs=[];for(const file of files)photoIDs.push(await entryPhoto(file));
+  $('quickError').textContent='Preparing photos…';const photoIDs=[];for(const record of records){await record.job;if(record.error)throw Error(record.error);if(!record.blob)throw Error('Choose the photo again.');photoIDs.push(await entryPhoto(record.blob,true));}
   const row={id:newID(),revision:0,cardId:quickCard.id,name:quickCard.name,condition:quickCondition(),slab:quickType==='slab'?$('quickSlab').value.trim():'',cost:jpy?Math.round(cost/entryRate):cost,price:asking,photos:photoIDs};
   drafts.push(row);dirty.add(key(row));selected.add(key(row));clearQuickPhotos();$('quickEntry').close();render();$('search').value='';$('results').replaceChildren();$('search').focus();status('Added. Choose the next card, or Submit selected.');
  }catch(e){$('quickError').textContent=e.message;}finally{lock(false);$('quickAdd').disabled=false;$('quickCancel').disabled=false;}
