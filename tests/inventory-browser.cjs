@@ -45,7 +45,7 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
     if((body.action==='sold'&&r.stockId===failStockId)||(body.action==='delete'&&r.stockId===failDeleteId))return {stockId:r.stockId,error:'listing changed; reload'};
     const i=stock.findIndex(x=>x.stockId===r.stockId);
     if(body.action==='delete')stock.splice(i,1);
-    else if(body.action==='save')stock[i]={...stock[i],condition:r.condition,slab:r.slab,cost:r.cost,price:r.price,photos:r.photos,revision:r.revision+1};
+    else if(body.action==='save')stock[i]={...stock[i],included:r.included,condition:r.condition,slab:r.slab,cost:r.cost,price:r.price,photos:r.photos,revision:r.revision+1};
     else stock[i]={...stock[i],sale:r.sale,revision:r.revision+1,sold:true,photos:[]};
     return {stockId:r.stockId};
    });
@@ -181,6 +181,12 @@ if(process.env.INVENTORY_SCREENSHOT)await page.screenshot({path:process.env.INVE
  assert.equal(await page.locator('a[href="https://snkrdunk.com/apparels/0"]').count(),0);
  await page.locator('#publish').click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('1 listings published'));
  const custom=stock.find(r=>r.cardId===0);assert(custom);assert.equal(custom.name,'Eeveelutions nine-card set');assert.equal(custom.cost,20000);assert.equal(custom.price,25000);
+ await page.locator('[data-tab=stock]').click();await page.locator('#filter').fill('Eeveelutions nine-card set');
+ await page.locator('#rows tr').first().locator('summary').filter({hasText:'Included cards'}).click();
+ await page.locator('[aria-label="Included cards"]').first().fill('Charmander, Charmeleon, Charizard');
+ await page.locator('#save').click();await page.waitForFunction(()=>!document.querySelector('#save').disabled);
+ assert(stock.some(r=>r.included==='Charmander, Charmeleon, Charizard'));
+ await page.locator('#filter').fill('Charmeleon');assert.equal(await page.locator('#rows tr').count(),1);await page.locator('#filter').fill('');
  console.log('PASS: custom set name, photos, cost and publishing');
 
  await page.locator('[data-tab=drafts]').click();await page.locator('#search').fill('riftbound');
