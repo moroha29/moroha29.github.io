@@ -92,14 +92,7 @@ function photoCell(r,i,load=true){
  const id=(r.photos||[])[i];img.decoding='async';if(id&&load){img.dataset.photo=id;if(photos.has(id))img.src=photos.get(id);else photoObserver.observe(img);}
  label.append(img,el('span',photoLabel(i)+' · '+(id?'Change':'Upload')));
  if(!r.sold&&!r.consignment){const file=el('input');file.type='file';file.accept='image/jpeg,image/png';file.onchange=()=>{if(file.files[0])task(async()=>{await upload(r,i,file.files[0]);render();status('Photo ready. Save the row to keep it.');});};label.append(file);}
- td.className=i===0?'frontPhoto':i===1?'backPhoto':'cornerPhoto';td.append(label);return td;
-}
-function detailPhotos(r){
- const td=el('td');td.className='allPhotos';
- if((r.photos||[]).length<=2){td.textContent=(r.photos||[]).filter(Boolean).length+' photo(s)';return td;}
- const details=el('details');details.append(el('summary','Existing extra photos'));
- const grid=el('div',undefined,'cornerPhotos');for(let i=2;i<r.photos.length;i++){const cell=photoCell(r,i,false);grid.append(...cell.childNodes);}details.append(grid);
- details.ontoggle=()=>{if(details.open)grid.querySelectorAll('img').forEach((img,i)=>thumb(r.photos[i+2],img));};td.append(details);return td;
+ td.className=i===0?'frontPhoto':i===1?'backPhoto':'cornerPhoto';td.append(label);if(id&&!r.sold&&!r.consignment){const rotate=el('button','Rotate ↻','rotatePhoto');rotate.type='button';rotate.setAttribute('aria-label','Rotate '+photoLabel(i)+' 90 degrees');rotate.onclick=()=>task(async()=>{const result=await api('rotate',{photo:id,degrees:90});const updated=[...(r.photos||[])];updated[i]=result.photo;change(r,'photos',updated);render();status('Photo rotated. Save the row to keep it.');});td.append(rotate);}return td;
 }
 function inventoryGroupKey(r){return [r.cardId===0?'custom:'+r.name.trim().toLowerCase():r.cardId,r.condition,r.condition==='Slab'?(r.slab||'').trim().toUpperCase():''].join('|');}
 function inventoryAverages(){const groups=new Map();for(const r of [...stock,...drafts]){const k=inventoryGroupKey(r),g=groups.get(k)||{count:0,cost:0,price:0,sold:0,sales:0};if(r.sold){g.sold++;g.sales+=r.sale||0;}else{g.count++;g.cost+=r.cost;g.price+=r.price;}groups.set(k,g);}return groups;}
@@ -109,7 +102,7 @@ function render(){
  document.querySelectorAll('[data-tab]').forEach(n=>n.classList.toggle('active',n.dataset.tab===tab));
  $('batchCount').textContent=batches.length;const isBatch=tab==='carousell';['inventoryToolbar','inventoryTable','inventoryHint','context'].forEach(id=>$(id).hidden=isBatch);$('carousellPanel').hidden=!isBatch;$('makeBatch').hidden=tab!=='stock';$('unassignedLabel').hidden=tab!=='stock';if(isBatch)renderBatches();
  $('addPanel').hidden=tab!=='drafts';$('publish').hidden=tab!=='drafts';$('sell').hidden=tab==='drafts';$('sellTogether').hidden=tab!=='stock';$('trade').hidden=tab!=='stock';$('save').hidden=tab==='sold';
- $('context').textContent=tab==='drafts'?'Add cards, then Submit selected. One front photo is enough; back is optional.':tab==='sold'?'Sold prices can be corrected. Delete permanently removes the selected cards from accounting totals.':'Edit selected rows and save. Fill in Sold SGD before marking cards sold.';
+ $('context').textContent=tab==='drafts'?'Add cards, then Submit selected. One front photo is enough; back is optional.':tab==='sold'?'Sold prices can be corrected. Delete permanently removes the selected cards from accounting totals.':'Select cards → Mark sold → enter the sale price.';
  const rows=shown();photoObserver.disconnect();$('rows').replaceChildren();$('empty').hidden=rows.length>0;
  rows.forEach((r,index)=>{
   const tr=el('tr');tr.dataset.key=key(r);if(dirty.has(key(r)))tr.classList.add('dirty');
@@ -118,6 +111,7 @@ function render(){
   if(r.cardId){const isRift=r.cardId>=2000000000;const source=el('a',isRift?'Bilgewater ↗':'SNKRDUNK ↗');source.href=isRift?(r.websiteUrl||'https://bilgewatermarket.com/cards'):('https://snkrdunk.com/apparels/'+r.cardId);source.target='_blank';source.rel='noopener noreferrer';card.append(source);}else{const title=el('input');title.value=r.name;title.maxLength=180;title.setAttribute('aria-label','Custom listing name');title.disabled=r.sold;title.onchange=()=>{r.name=title.value.trim();dirty.add(key(r));render();};card.append(title);}
   const batch=batchFor(r);if(batch){const badge=el('button','Carousell · '+batch.name+' · '+batch.status,'batchBadge');badge.onclick=()=>{tab='carousell';selected.clear();render();document.getElementById('batch-'+batch.id)?.scrollIntoView({block:'start'});};card.append(badge);}
   const group=averages.get(inventoryGroupKey(r));if(group&&group.count+group.sold>1){const parts=[];if(group.count)parts.push(group.count+' copies · avg cost $'+money(Math.round(group.cost/group.count))+' · avg asking $'+money(Math.round(group.price/group.count)));if(group.sold)parts.push(group.sold+' sold · avg sale $'+money(Math.round(group.sales/group.sold)));card.append(el('small',parts.join(' / '),'groupAverages'));}
+  if(r.sold)card.append(el('small','Sold for S$'+money(r.sale)));
   if(r.tradeIn)card.append(el('small','Trade received · cost carried forward'));
   if(r.consignment)card.append(el('small','Consignment · edit details in Telegram'));
   if(r.error)card.append(el('div',r.error,'rowerror'));tr.append(card);
@@ -126,8 +120,7 @@ function render(){
   sel.onchange=()=>{change(r,'condition',sel.value);render();};cond.append(sel);
   if(r.condition==='Slab'){const grade=el('input');grade.className='grade';grade.placeholder='PSA 10';grade.value=r.slab||'';grade.disabled=r.sold||r.consignment;if(grade.disabled)grade.dataset.fixed='true';grade.onchange=()=>change(r,'slab',grade.value);cond.append(grade);}tr.append(cond);
   ['cost','price'].forEach(field=>{const cell=el('td',undefined,field+'Cell'),input=moneyInput(r,field);cell.dataset.label=field==='cost'?'Cost SGD · private':'Asking SGD';input.disabled=r.sold||r.consignment||(field==='cost'&&!!r.tradeIn);if(input.disabled)input.dataset.fixed='true';cell.append(input);tr.append(cell);});
-  tr.append(photoCell(r,0),photoCell(r,1),detailPhotos(r));
-  const sale=el('td',undefined,'saleCell');sale.dataset.label='Sold SGD';if(!r.stockId)sale.classList.add('noSale');if(r.stockId)sale.append(moneyInput(r,'sale'));else sale.textContent='—';tr.append(sale);
+  tr.append(photoCell(r,0),photoCell(r,1));
   const actions=el('td');
   if(r.stockId){const link=el('a','Listing ↗');link.href='https://t.me/'+bot+'?start=listing_'+r.stockId;link.target='_blank';link.rel='noopener noreferrer';actions.append(link);}
   else{const dup=el('button','Duplicate','mini');dup.onclick=()=>{drafts.push({...r,id:newID(),revision:0,photos:[],error:''});dirty.add(key(drafts.at(-1)));selected.add(key(drafts.at(-1)));render();};actions.append(dup);}

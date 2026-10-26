@@ -32,6 +32,7 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
    else if(action==='search')result=[{id:93097,name:'Eevee ex SAR [224/187]',productNumber:'224/187',thumbnailUrl:'https://cdn.snkrdunk.com/card.png'}];
    if(action==='reference'){referenceRequests++;result={imageURL:'https://bilgewatermarket.com/assets/'+body.cardId+'.webp'};}
    if(action==='settings'){entryRate=body.jpyPerSgd;result={ok:true};}
+   if(action==='rotate'){assert.equal(body.degrees,90);assert(body.photo);result={photo:'web:'+String(next++).padStart(24,'0')+'.jpg'};}
    if(action==='upload')result={photo:'web:'+String(next++).padStart(24,'0')+'.jpg'};
    if(action==='photo'){assert.equal(body.thumbnail,true);photoRequests++;activePhotos++;maxPhotos=Math.max(maxPhotos,activePhotos);await new Promise(resolve=>setTimeout(resolve,15));await route.fulfill({headers,contentType:'image/png',body:png});activePhotos--;return;}
    if(action==='drafts')result=body.rows.map(r=>{const d={...r,revision:r.revision+1};const i=drafts.findIndex(x=>x.id===r.id);if(i<0)drafts.push(d);else drafts[i]=d;return {id:r.id,revision:d.revision};});
@@ -93,7 +94,7 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
  await page.locator('[data-tab=stock]').click();row=page.locator('#rows tr').first();await row.locator('input.money').nth(1).fill('160');await row.locator('select').focus();await page.locator('#save').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('Saved'));
  assert.equal(stock[0].price,16000);
  await row.locator('input.money').nth(0).fill('110');
- await row.locator('input.money').nth(2).fill('170');await row.locator('select').focus();await page.locator('#sell').click();for(const input of await page.locator('#saleInputs input').all()){if(!(await input.inputValue()))await input.fill('100');}await page.locator('#saleReview').click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('#status').textContent==='Sales recorded.');
+ await row.locator('select').focus();await page.locator('#sell').click();await page.locator('#saleInputs input').first().fill('170');for(const input of await page.locator('#saleInputs input').all()){if(!(await input.inputValue()))await input.fill('100');}await page.locator('#saleReview').click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('#status').textContent==='Sales recorded.');
  assert.equal(stock[0].sale,17000);assert.equal(stock[0].sold,true);assert.equal(stock[0].cost,11000);
  await page.locator('[data-tab=sold]').click();row=page.locator('#rows tr').first();assert.equal(await row.locator('select').isDisabled(),true);assert.equal(await row.locator('input.money').nth(0).isDisabled(),true);
  await row.locator('input[type=checkbox]').check();await page.locator('#remove').click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('#status').textContent==='Deleted selected rows.');assert.equal(stock.length,0);
@@ -101,6 +102,7 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
  stock=[901,902].map(id=>({id:'',stockId:id,cardId:93097,name:'Eevee copy '+id,condition:'NM',slab:'',cost:5000,price:10000,photos:['front','back'],revision:1,sold:false,consignment:false}));
  photoRequests=0;await page.locator('[data-tab=stock]').click();await page.locator('#refresh').click();await page.waitForFunction(()=>document.querySelectorAll('#rows tr').length===2);
  for(const r of await page.locator('#rows tr').all()){await r.locator('img').first().scrollIntoViewIfNeeded();await r.locator('img').first().evaluate(img=>new Promise(resolve=>{if(img.src.startsWith('blob:'))return resolve();const observer=new MutationObserver(()=>{if(img.src.startsWith('blob:')){observer.disconnect();resolve();}});observer.observe(img,{attributes:true,attributeFilter:['src']});}));}assert.equal(photoRequests,2,'duplicate photo downloads');
+ await page.locator('.rotatePhoto').first().click();await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('Photo rotated.'));assert(await page.locator('#rows tr.dirty').count());
  failStockId=902;await page.locator('#all').check();await page.locator('#sell').click();assert.equal(await page.locator('#saleInputs input').first().inputValue(),'');await page.locator('#saleReview').click();assert((await page.locator('#saleError').textContent()).includes('Enter a valid'));assert(stock.every(r=>!r.sold));for(const input of await page.locator('#saleInputs input').all()){if(!(await input.inputValue()))await input.fill('100');}await page.locator('#saleReview').click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('1 sold;'));
  assert.equal(await page.locator('#rows tr').count(),1);assert.equal(await page.locator('#stockCount').textContent(),'1');assert.equal(await page.locator('#soldCount').textContent(),'1');assert.equal(await page.locator('#selected').textContent(),'1 selected');
  failStockId=0;await page.locator('#sell').click();for(const input of await page.locator('#saleInputs input').all()){if(!(await input.inputValue()))await input.fill('100');}await page.locator('#saleReview').click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('#status').textContent==='Sales recorded.');
@@ -111,8 +113,8 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
  assert.equal(searchRequests,1,'duplicate links should share catalogue lookup');
  await page.locator('#bulkPhotos').setInputFiles(Array.from({length:2},(_,i)=>({name:'1-'+String(i+1).padStart(2,'0')+'.png',mimeType:'image/png',buffer:png})));
  await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('2 photos matched'));
- assert.equal(await page.locator('#rows tr').first().locator('.allPhotos').textContent(),'2 photo(s)');
- assert.equal(await page.locator('#rows tr').nth(1).locator('.allPhotos').textContent(),'0 photo(s)');
+ assert.equal(await page.locator('.allPhotos,.saleCell').count(),0);
+ assert.equal(await page.locator('#inventoryTable th').count(),8);
  for(const width of [320,390,750]){
  await page.setViewportSize({width,height:844});
  assert.equal(await page.locator('#search').isVisible(),true);
