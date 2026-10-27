@@ -98,6 +98,11 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
  await row.locator('select').focus();await page.locator('#sell').click();await page.locator('#saleInputs input').first().fill('170');for(const input of await page.locator('#saleInputs input').all()){if(!(await input.inputValue()))await input.fill('100');}await page.locator('#saleReview').click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('#status').textContent==='Sales recorded.');
  assert.equal(stock[0].sale,17000);assert.equal(stock[0].sold,true);assert.equal(stock[0].cost,11000);
  await page.locator('[data-tab=sold]').click();row=page.locator('#rows tr').first();assert.equal(await row.locator('select').isDisabled(),true);assert.equal(await row.locator('input.money').nth(0).isDisabled(),true);
+ assert.equal(await page.locator('#sell').textContent(),'Edit sold price');
+ await row.locator('.editSoldPrice').click();assert.equal(await page.locator('#saleInputs input').first().inputValue(),'170.00');
+ await page.locator('#saleInputs input').first().fill('185.50');await page.locator('#saleReview').click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('#status').textContent==='Sold prices updated.');
+ assert.equal(stock[0].sale,18550);assert.equal(stock[0].sold,true);assert.equal(stock[0].cost,11000);assert.equal(stock[0].price,16000);assert.deepEqual(stock[0].photos,[]);assert.equal(stock.length,1);
+ await row.locator('input[type=checkbox]').check();await page.locator('#sell').click();assert.equal(await page.locator('#saleInputs input').first().inputValue(),'185.50');await page.locator('#saleCancel').click();assert.equal(stock[0].sale,18550);
  await row.locator('input[type=checkbox]').check();await page.locator('#remove').click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('#status').textContent==='Deleted selected rows.');assert.equal(stock.length,0);
  // A partial bulk sale/deletion refreshes successes and selects only failures.
  stock=[901,902].map(id=>({id:'',stockId:id,cardId:93097,name:'Eevee copy '+id,condition:'NM',slab:'',cost:5000,price:10000,photos:['front','back'],revision:1,sold:false,consignment:false}));
@@ -195,6 +200,14 @@ if(process.env.INVENTORY_SCREENSHOT)await page.screenshot({path:process.env.INVE
  assert(stock.some(r=>r.included==='Charmander, Charmeleon, Charizard'));
  await page.locator('#filter').fill('Charmeleon');assert.equal(await page.locator('#rows tr').count(),1);await page.locator('#filter').fill('');
  console.log('PASS: custom set name, photos, cost and publishing');
+ for(const backOnly of [false,true]){
+  await page.locator('[data-tab=drafts]').click();await page.locator('#addCustom').click();await page.locator('#quickCustomName').fill(backOnly?'Back only listing':'No photo listing');await page.locator('#quickRaw').click();await page.locator('#quickCost').fill('10');await page.locator('#quickPrice').fill('20');
+  if(backOnly)await page.locator('#quickBack').setInputFiles({name:'back.png',mimeType:'image/png',buffer:png});
+  await page.locator('#quickAdd').click();await page.waitForFunction(()=>!document.querySelector('#quickEntry').open);await page.locator('#publish').click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('1 listings published'));
+  const saved=stock.find(r=>r.name===(backOnly?'Back only listing':'No photo listing'));assert(saved);if(backOnly){assert.equal(saved.photos.length,2);assert.equal(saved.photos[0],'');assert(saved.photos[1]);}else assert.deepEqual(saved.photos,[]);
+ }
+ console.log('PASS: publish without photos or with only a back photo');
+
 
  await page.locator('[data-tab=drafts]').click();await page.locator('#search').fill('riftbound');
  await page.waitForFunction(()=>document.querySelectorAll('#results img').length===2&&[...document.querySelectorAll('#results img')].every(i=>i.naturalWidth>0));
@@ -203,9 +216,10 @@ if(process.env.INVENTORY_SCREENSHOT)await page.screenshot({path:process.env.INVE
  assert((await page.locator('#quickReference').getAttribute('src')).includes('2000000002'));assert.equal(referenceRequests,2,'selected card should reuse resolved reference');
  await page.locator('#quickCancel').click();console.log('PASS: Riftbound lazy language-specific search and selected-card previews');
  // A stalled server must unlock the manager without automatically replaying mutations.
+ const beforeTimeoutStockCount=stock.length;
  await page.evaluate(()=>{window.realFetch=window.fetch;window.realTimeout=AbortSignal.timeout;AbortSignal.timeout=()=>window.realTimeout(50);window.fetch=(url,options)=>String(url).endsWith('/data')?new Promise((resolve,reject)=>options.signal.addEventListener('abort',()=>reject(options.signal.reason),{once:true})):window.realFetch(url,options);});
  await page.locator('#refresh').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('Request timed out'));
- assert.equal(await page.locator('#refresh').isEnabled(),true,'timeout left manager locked');assert.equal(stock.length,20,'timeout changed inventory');
+ assert.equal(await page.locator('#refresh').isEnabled(),true,'timeout left manager locked');assert.equal(stock.length,beforeTimeoutStockCount,'timeout changed inventory');
  await page.evaluate(()=>{window.fetch=window.realFetch;AbortSignal.timeout=window.realTimeout;});
  await page.locator('#refresh').click();await page.waitForFunction(()=>document.querySelector('#status').textContent==='Updated.');
  console.log('PASS: stalled request aborts, unlocks and recovers without duplicate writes');

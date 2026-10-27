@@ -101,8 +101,8 @@ function render(){
  $('draftCount').textContent=drafts.length;$('stockCount').textContent=stock.filter(r=>!r.sold).length;$('soldCount').textContent=stock.filter(r=>r.sold).length;
  document.querySelectorAll('[data-tab]').forEach(n=>n.classList.toggle('active',n.dataset.tab===tab));
  $('batchCount').textContent=batches.length;const isBatch=tab==='carousell';['inventoryToolbar','inventoryTable','inventoryHint','context'].forEach(id=>$(id).hidden=isBatch);$('carousellPanel').hidden=!isBatch;$('makeBatch').hidden=limitedSeller||tab!=='stock';$('unassignedLabel').hidden=limitedSeller||tab!=='stock';if(isBatch)renderBatches();
- $('addPanel').hidden=tab!=='drafts';$('publish').hidden=tab!=='drafts';$('sell').hidden=tab==='drafts';$('sellTogether').hidden=tab!=='stock';$('trade').hidden=limitedSeller||tab!=='stock';$('save').hidden=tab==='sold';
- $('context').textContent=tab==='drafts'?'Add cards, then Submit selected. One front photo is enough; back is optional.':tab==='sold'?'Sold prices can be corrected. Delete permanently removes the selected cards from accounting totals.':'Select cards → Mark sold → enter the sale price.';
+ $('addPanel').hidden=tab!=='drafts';$('publish').hidden=tab!=='drafts';$('sell').hidden=tab==='drafts';$('sell').textContent=tab==='sold'?'Edit sold price':'Mark sold';$('sellTogether').hidden=tab!=='stock';$('trade').hidden=limitedSeller||tab!=='stock';$('save').hidden=tab==='sold';
+ $('context').textContent=tab==='drafts'?'Add cards, then Submit selected. Photos are optional; add them now or later.':tab==='sold'?'Sold prices can be corrected. Delete permanently removes the selected cards from accounting totals.':'Select cards → Mark sold → enter the sale price.';
  const rows=shown();photoObserver.disconnect();$('rows').replaceChildren();$('empty').hidden=rows.length>0;
  rows.forEach((r,index)=>{
   const tr=el('tr');tr.dataset.key=key(r);if(dirty.has(key(r)))tr.classList.add('dirty');
@@ -112,7 +112,7 @@ function render(){
   if(r.stockId&&!r.consignment){const details=el('details'),summary=el('summary','Included cards'+(r.included?' · Added':''));details.append(summary);const input=el('textarea');input.value=r.included||'';input.maxLength=1000;input.rows=3;input.placeholder='Charmander, Charmeleon, Charizard';input.setAttribute('aria-label','Included cards');input.disabled=r.sold;input.oninput=()=>change(r,'included',input.value);details.append(input,el('small','Optional. Card names or numbers, separated by commas. Buyers can search these.'));card.append(details);}
   const batch=batchFor(r);if(batch){const badge=el('button','Carousell · '+batch.name+' · '+batch.status,'batchBadge');badge.onclick=()=>{tab='carousell';selected.clear();render();document.getElementById('batch-'+batch.id)?.scrollIntoView({block:'start'});};card.append(badge);}
   const group=averages.get(inventoryGroupKey(r));if(group&&group.count+group.sold>1){const parts=[];if(group.count)parts.push(group.count+' copies · avg cost $'+money(Math.round(group.cost/group.count))+' · avg asking $'+money(Math.round(group.price/group.count)));if(group.sold)parts.push(group.sold+' sold · avg sale $'+money(Math.round(group.sales/group.sold)));card.append(el('small',parts.join(' / '),'groupAverages'));}
-  if(r.sold)card.append(el('small','Sold for S$'+money(r.sale)));
+  if(r.sold){const edit=el('button','Sold for S$'+money(r.sale)+' · Edit','editSoldPrice');edit.type='button';edit.setAttribute('aria-label','Edit sold price for '+r.name);edit.onclick=()=>task(()=>editSales([r]));card.append(edit);}
   if(r.tradeIn)card.append(el('small','Trade received · cost carried forward'));
   if(r.consignment)card.append(el('small','Consignment · edit details in Telegram'));
   if(r.error)card.append(el('div',r.error,'rowerror'));tr.append(card);
@@ -250,7 +250,7 @@ function confirmAction(title,text,rows){return new Promise(resolve=>{
 });}
 $('publish').onclick=()=>task(async()=>{
  const rows=picked();if(!await saveRows(rows)){status('Fix the highlighted rows first.',true);return;}
- const invalid=rows.filter(r=>r.price<=0||![1,2,10].includes(r.photos.length)||r.photos.some(p=>!p));if(invalid.length)throw Error('Each card needs an asking price and a front photo. Back is optional.');
+ const invalid=rows.filter(r=>r.price<=0||![0,1,2,10].includes(r.photos.length)||(r.photos.length!==2&&r.photos.some(p=>!p)));if(invalid.length)throw Error('Each card needs an asking price. Photos are optional.');
  if(!await confirmAction('Publish '+rows.length+' listings?','These will appear in your Telegram listings topic. Costs stay private.',rows))return;
  const result=await api('publish',{rows:rows.map(payload)});const failures=new Set(result.filter(r=>r.error).map(r=>r.id));
  result.forEach((r,i)=>{if(r.error)rows[i].error=r.error;});
@@ -284,7 +284,7 @@ $('trade').onclick=()=>task(async()=>{
   $('tradeSummary').textContent='Giving '+outgoing.length+' cards · original cost S$'+money(basis);$('tradeDrafts').replaceChildren();$('tradeCash').value='0';$('tradeNote').value='';$('tradeError').textContent='';
   for(const d of drafts){const label=el('label',undefined,'check'),check=el('input');check.type='checkbox';check.onchange=()=>check.checked?chosen.add(d.id):chosen.delete(d.id);label.append(check,el('span',d.name+' · split value S$'+money(d.cost)));$('tradeDrafts').append(label);}
   const done=v=>{$('tradeDialog').close();resolve(v);};$('tradeCancel').onclick=()=>done(null);$('tradeDialog').oncancel=e=>{e.preventDefault();done(null);};
-  $('tradeReview').onclick=()=>{const value=cents($('tradeCash').value),cash=$('tradeCashMode').value==='received'?-value:value;const incoming=drafts.filter(d=>chosen.has(d.id)).sort((a,b)=>a.id.localeCompare(b.id));if(value===null||!incoming.length||incoming.length>100||basis+cash<0||basis+cash>9999999999){$('tradeError').textContent='Choose 1–100 incoming cards and a valid cash amount. Cash received cannot exceed original cost.';return;}if(incoming.some(d=>!d.photos.length||d.price<=0)){$('tradeError').textContent='Each incoming draft needs a front photo and asking price.';return;}done({incoming,cash,note:$('tradeNote').value.trim()});};
+  $('tradeReview').onclick=()=>{const value=cents($('tradeCash').value),cash=$('tradeCashMode').value==='received'?-value:value;const incoming=drafts.filter(d=>chosen.has(d.id)).sort((a,b)=>a.id.localeCompare(b.id));if(value===null||!incoming.length||incoming.length>100||basis+cash<0||basis+cash>9999999999){$('tradeError').textContent='Choose 1–100 incoming cards and a valid cash amount. Cash received cannot exceed original cost.';return;}if(incoming.some(d=>d.price<=0)){$('tradeError').textContent='Each incoming draft needs an asking price.';return;}done({incoming,cash,note:$('tradeNote').value.trim()});};
   $('tradeDialog').showModal();
  });
  if(!result)return;
@@ -315,8 +315,10 @@ $('sellTogether').onclick=()=>task(async()=>{
  await api('bundle-sale',{rows:rows.map(r=>({stockId:r.stockId,revision:r.revision})),total});
  rows.forEach(r=>dirty.delete(key(r)));await load(true);status(rows.length+' cards sold for SGD '+money(total)+'.');
 });
-$('sell').onclick=()=>task(async()=>{
- const rows=picked();validateRows(rows);
+$('sell').onclick=()=>task(()=>editSales(picked()));
+async function editSales(rows){
+ validateRows(rows);const correcting=rows.every(r=>r.sold);
+ $('saleEntry').querySelector('h2').textContent=correcting?'Edit sold price':'Actual sale price';$('saleReview').textContent=correcting?'Review changes':'Review sale';
  const prices=await new Promise(resolve=>{
   $('saleInputs').replaceChildren();$('saleError').textContent='';const inputs=[];
   for(const r of rows){const label=el('label',r.name+' · asking S$'+money(r.price)),input=el('input');input.inputMode='decimal';input.placeholder='Actual sold price';input.setAttribute('aria-label','Sale price for '+r.name);input.value=r.saleDirty||r.sold?money(r.sale):'';label.append(input);$('saleInputs').append(label);inputs.push(input);}
@@ -326,15 +328,15 @@ $('sell').onclick=()=>task(async()=>{
  });
  if(!prices)return;
  const preview=rows.map((r,i)=>({...r,sale:prices[i]}));
- if(!await confirmAction('Mark '+rows.length+' cards sold?','Check your actual sale prices below. Topic posts will be retired.',preview))return;
+ if(!await confirmAction(correcting?'Update sold prices?':'Mark '+rows.length+' cards sold?',correcting?'Updates sales totals and profit. Cards stay sold.':'Check your actual sale prices below. Topic posts will be retired.',preview))return;
  rows.forEach((r,i)=>{r.sale=prices[i];r.saleDirty=true;dirty.add(key(r));});
  const edits=rows.filter(r=>r.stockDirty&&!r.sold&&!r.consignment);
  if(edits.length&&!await saveRows(edits)){status('Fix the row errors before recording sales.',true);return;}
  const result=await api('stock',{rows:rows.map(payload),action:'sold'});const failed=[];
  result.forEach((out,i)=>{const row=rows[i];if(out.error){row.error=out.error;dirty.add(key(row));failed.push(key(row));}else{row.saleDirty=false;row.stockDirty=false;dirty.delete(key(row));}});
  await load(true);failed.forEach(k=>selected.add(k));render();
- status(failed.length?(rows.length-failed.length)+' sold; '+failed.length+' need attention. Refresh and review the failed rows.':'Sales recorded.',failed.length>0);
-});
+ status(failed.length?(rows.length-failed.length)+(correcting?' updated; ':' sold; ')+failed.length+' need attention. Refresh and review the failed rows.':correcting?'Sold prices updated.':'Sales recorded.',failed.length>0);
+}
 $('remove').onclick=()=>task(async()=>{
  const rows=picked();if(rows.some(r=>r.tradeIn))throw Error('Trade-linked cards keep their cost history. Record a zero-value sale for a write-off.');if(!await confirmAction('Delete '+rows.length+' rows?',tab==='drafts'?'Drafts will be discarded.':'This removes selected listings and their amounts from your accounting totals. This cannot be undone here.',rows))return;
  const saved=rows.filter(r=>tab!=='drafts'||r.revision>0);
@@ -458,12 +460,12 @@ $('quickAdd').onclick=async()=>{
  const cost=cents($('quickCost').value),asking=$('quickPrice').value.trim()===''?0:cents($('quickPrice').value),jpy=$('quickCurrency').value==='JPY';
  if(cost===null||asking===null){$('quickError').textContent='Enter valid prices.';return;}
  if(jpy&&entryRate<=0){$('quickError').textContent='Save a JPY conversion rate first.';return;}
- const records=['Front','Back'].map(side=>quickPhotosState[side]).filter(r=>r?.file);
- if(!$('quickFront').files[0]){$('quickError').textContent='Choose a front photo.';return;}
+ const records=['Front','Back'].map(side=>quickPhotosState[side]);
  if(quickCondition()==='Slab'&&!$('quickSlab').value.trim()){$('quickError').textContent='Enter the slab grade.';return;}
  lock(true);$('quickAdd').disabled=true;$('quickCancel').disabled=true;
  try{
-  $('quickError').textContent='Preparing photos…';const photoIDs=[];for(const record of records){await record.job;if(record.error)throw Error(record.error);if(!record.blob)throw Error('Choose the photo again.');photoIDs.push(await entryPhoto(record.blob,true));}
+  $('quickError').textContent='Preparing photos…';const photoIDs=[];for(const record of records){if(!record?.file){photoIDs.push('');continue;}await record.job;if(record.error)throw Error(record.error);if(!record.blob)throw Error('Choose the photo again.');photoIDs.push(await entryPhoto(record.blob,true));}
+  while(photoIDs.length&&!photoIDs.at(-1))photoIDs.pop();
   const row={id:newID(),revision:0,cardId:quickCard.id,name:quickCard.name,condition:quickCondition(),slab:quickType==='slab'?$('quickSlab').value.trim():'',cost:jpy?Math.round(cost/entryRate):cost,price:asking,photos:photoIDs};
   drafts.push(row);dirty.add(key(row));selected.add(key(row));clearQuickPhotos();$('quickEntry').close();render();$('search').value='';$('results').replaceChildren();$('search').focus();status('Added. Choose the next card, or Submit selected.');
  }catch(e){$('quickError').textContent=e.message;}finally{lock(false);$('quickAdd').disabled=false;$('quickCancel').disabled=false;}
