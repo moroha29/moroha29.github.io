@@ -1,7 +1,7 @@
 'use strict';
 (() => {
 const $=id=>document.getElementById(id);
-let token='', tab='drafts', drafts=[], stock=[], selected=new Set(), dirty=new Set(), busy=false, bot='jhcardbot', searchSeq=0;
+let limitedSeller=false, token='', tab='drafts', drafts=[], stock=[], selected=new Set(), dirty=new Set(), busy=false, bot='jhcardbot', searchSeq=0;
 let batches=[],template={},templateDirty=false,entryRate=0,expenses=[],trades=[];
 const batchFor=r=>batches.find(b=>b.items.some(i=>i.stockId===r.stockId));
 const photos=new Map(),photoLoads=new Map(),photoSizes=new Map();
@@ -40,7 +40,7 @@ function signOut(clear=true){token='';$('quickEntry').close();clearQuickPhotos()
 async function task(fn){if(busy)return;lock(true);try{await fn();}catch(e){status(e.message,true);}finally{lock(false);if(!$('workspace').hidden)render();}}
 async function load(preserve=false,initialData){
  const pending=preserve?[...drafts,...stock].filter(r=>dirty.has(key(r))):[];
- const data=initialData||await api('data');drafts=data.drafts||[];stock=(data.stock||[]).map(r=>({...r,sale:r.sold?r.sale:r.price}));bot=data.bot||bot;entryRate=data.jpyPerSgd||0;$('entryRate').value=entryRate||'';batches=data.carousell?.batches||[];if(!templateDirty){template=data.carousell?.template||{};$('templateIntro').value=template.intro||'';$('templateItem').value=template.item||'';$('templateOutro').value=template.outro||'';}selected.clear();dirty.clear();
+ const data=initialData||await api('data');limitedSeller=!!data.limitedSeller;$('accountingPanel').hidden=limitedSeller;document.querySelector('[data-tab=carousell]').hidden=limitedSeller;$('saveEntryRate').hidden=limitedSeller;$('entryRate').readOnly=limitedSeller;if(limitedSeller&&tab==='carousell')tab='drafts';drafts=data.drafts||[];stock=(data.stock||[]).map(r=>({...r,sale:r.sold?r.sale:r.price}));bot=data.bot||bot;entryRate=data.jpyPerSgd||0;$('entryRate').value=entryRate||'';batches=data.carousell?.batches||[];if(!templateDirty){template=data.carousell?.template||{};$('templateIntro').value=template.intro||'';$('templateItem').value=template.item||'';$('templateOutro').value=template.outro||'';}selected.clear();dirty.clear();
  expenses=data.expenses||[];trades=data.trades||[];renderAccounting();
  const t=data.totals;$('totals').replaceChildren();
  for(const [label,value] of [['Inventory cost',t.InventoryCost],['Sales',t.Revenue],['Net profit',t.Revenue-t.SoldCost-t.ConsignmentPayout-(t.Expenses||0)],['Expenses',t.Expenses||0],['Stock cost basis',t.Spent]]){
@@ -100,8 +100,8 @@ function render(){
  const averages=inventoryAverages();
  $('draftCount').textContent=drafts.length;$('stockCount').textContent=stock.filter(r=>!r.sold).length;$('soldCount').textContent=stock.filter(r=>r.sold).length;
  document.querySelectorAll('[data-tab]').forEach(n=>n.classList.toggle('active',n.dataset.tab===tab));
- $('batchCount').textContent=batches.length;const isBatch=tab==='carousell';['inventoryToolbar','inventoryTable','inventoryHint','context'].forEach(id=>$(id).hidden=isBatch);$('carousellPanel').hidden=!isBatch;$('makeBatch').hidden=tab!=='stock';$('unassignedLabel').hidden=tab!=='stock';if(isBatch)renderBatches();
- $('addPanel').hidden=tab!=='drafts';$('publish').hidden=tab!=='drafts';$('sell').hidden=tab==='drafts';$('sellTogether').hidden=tab!=='stock';$('trade').hidden=tab!=='stock';$('save').hidden=tab==='sold';
+ $('batchCount').textContent=batches.length;const isBatch=tab==='carousell';['inventoryToolbar','inventoryTable','inventoryHint','context'].forEach(id=>$(id).hidden=isBatch);$('carousellPanel').hidden=!isBatch;$('makeBatch').hidden=limitedSeller||tab!=='stock';$('unassignedLabel').hidden=limitedSeller||tab!=='stock';if(isBatch)renderBatches();
+ $('addPanel').hidden=tab!=='drafts';$('publish').hidden=tab!=='drafts';$('sell').hidden=tab==='drafts';$('sellTogether').hidden=tab!=='stock';$('trade').hidden=limitedSeller||tab!=='stock';$('save').hidden=tab==='sold';
  $('context').textContent=tab==='drafts'?'Add cards, then Submit selected. One front photo is enough; back is optional.':tab==='sold'?'Sold prices can be corrected. Delete permanently removes the selected cards from accounting totals.':'Select cards → Mark sold → enter the sale price.';
  const rows=shown();photoObserver.disconnect();$('rows').replaceChildren();$('empty').hidden=rows.length>0;
  rows.forEach((r,index)=>{

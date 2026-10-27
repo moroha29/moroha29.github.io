@@ -5,7 +5,7 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
  try {
  const page=await browser.newPage({viewport:{width:Number(process.env.INVENTORY_WIDTH||1440),height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
  const base=path.resolve(__dirname,'../web-portfolio/public/card_manager');let drafts=[],stock=[],next=1,failStockId=0,failDeleteId=0,photoRequests=0,activePhotos=0,maxPhotos=0,searchRequests=0,dataRequests=0;
- let entryRate=0,expenses=[],trades=[],referenceRequests=0;
+ let limitedSeller=false,entryRate=0,expenses=[],trades=[],referenceRequests=0;
  let carousellBatches=[],batchNext=1,template={intro:'Tap a card link → Start in Telegram → view photos or make an offer.',item:'{card} ({condition}) - S${price}\n{link}',outro:'',revision:0};
  const batchView=b=>{const items=b.ids.map(id=>{const row=stock.find(r=>r.stockId===id);return row?{stockId:id,name:row.name,condition:row.condition,price:row.price,sold:row.sold,deleted:false}:{stockId:id,name:'Deleted card',price:0,deleted:true};});
  const live=items.filter(i=>!i.sold&&!i.deleted);const description=live.length?[template.intro,...live.map(i=>template.item.replaceAll('{card}',i.name).replaceAll('{condition}',i.condition).replaceAll('{price}',(i.price/100).toFixed(2)).replaceAll('{link}','https://t.me/testbot?start=listing_'+i.stockId)),template.outro].filter(Boolean).join('\n\n'):'';
@@ -25,7 +25,7 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
   if(action==='login'){assert.equal(body.bootstrap,true);result={token:'a'.repeat(96),inventory:{expenses,trades,jpyPerSgd:entryRate,drafts,stock,bot:'testbot',totals:{InventoryCost:100,Revenue:0,SoldCost:0,Spent:100,ConsignmentPayout:0},carousell:{template,batches:carousellBatches.map(batchView)}}};}
   else {assert.equal(req.headers().authorization,'Bearer '+'a'.repeat(96));
    if(action==='data')dataRequests++;
-   if(action==='data')result={expenses,trades,jpyPerSgd:entryRate,drafts,stock,bot:'testbot',totals:{InventoryCost:100,Revenue:0,SoldCost:0,Spent:100,ConsignmentPayout:0},carousell:{template,batches:carousellBatches.map(batchView)}};
+   if(action==='data')result={limitedSeller,expenses,trades,jpyPerSgd:entryRate,drafts,stock,bot:'testbot',totals:{InventoryCost:100,Revenue:0,SoldCost:0,Spent:100,ConsignmentPayout:0},carousell:{template,batches:carousellBatches.map(batchView)}};
    if(action==='search')searchRequests++;
    if(action==='search'&&body.query.toLowerCase()==='neo')result=Array.from({length:45},(_,i)=>({id:80000+i,name:'Pikachu Neo '+i,thumbnailUrl:'https://cdn.snkrdunk.com/card.png'})).slice(body.offset||0,(body.offset||0)+40);
    else if(action==='search'&&body.query.toLowerCase()==='riftbound')result=[{id:2000000001,brandId:'riftbound',name:'Annie EN normal'},{id:2000000002,brandId:'riftbound',name:'Annie CN normal'}];
@@ -226,6 +226,9 @@ if(process.env.INVENTORY_SCREENSHOT)await page.screenshot({path:process.env.INVE
  await page.locator('#expenses button').filter({hasText:'Edit'}).click();await page.locator('#expenseAmount').fill('75');await page.locator('#expenseSave').click();await page.waitForFunction(()=>document.querySelector('#expenses').textContent.includes('75.00'));assert.equal(expenses.length,1);assert.equal(expenses[0].amount,7500);
  await page.locator('#expenses button').filter({hasText:'Delete'}).click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('#status').textContent==='Expense removed.');assert.equal(expenses.length,0);
  console.log('PASS: trade preview, exact cost allocation, locked carried cost, expense validation/edit/delete');
+ limitedSeller=true;stock=[];drafts=[];expenses=[];trades=[];await page.locator('#refresh').click();await page.waitForFunction(()=>document.querySelector('#accountingPanel').hidden);
+ assert(await page.locator('[data-tab=carousell]').isHidden());assert(await page.locator('#trade').isHidden());assert(await page.locator('#makeBatch').isHidden());assert(await page.locator('#saveEntryRate').isHidden());assert.equal(await page.locator('#rows tr').count(),0);
+ console.log('PASS: limited seller manager hides owner-only features and replaces inventory');
  await page.evaluate(()=>{const original=window.fetch;window.fetch=(url,options)=>String(url).endsWith('/logout')?Promise.reject(new TypeError('Network unavailable')):original(url,options);});
  await page.locator('#logout').click();await page.locator('#login').waitFor({state:'visible'});
  assert.equal(await page.evaluate(()=>window.livePhotoURLs.size),0,'logout retained photo cache');
