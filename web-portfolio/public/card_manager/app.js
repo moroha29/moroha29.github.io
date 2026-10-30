@@ -437,9 +437,25 @@ for(const side of ['Front','Back']){
   record.job=turnPhoto(record.blob).then(blob=>{record.blob=blob;record.error=null;showQuickPhoto(side,record);}).catch(e=>{record.error=e.message;if(quickPhotosState[side]===record){$('quickError').textContent=e.message;$('quick'+side+'Rotate').disabled=false;}});
  };
 }
+// The upload endpoint takes 5 MB, so the encode steps down until it fits
+// rather than letting a sharper setting fail the upload outright. The first
+// quality is the one that is wanted; the rest are there so there is always an
+// answer.
+const PHOTO_LIMIT=5*1024*1024-64*1024;
+async function encodeFitting(canvas,qualities,failure){
+ let last=null;
+ for(const quality of qualities){
+  last=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',quality));
+  if(!last)throw Error(failure);
+  if(last.size<=PHOTO_LIMIT)return last;
+ }
+ throw Error('That photo is too detailed to upload. Crop it or take a closer shot.');
+}
 async function turnPhoto(blob){
  const image=await createImageBitmap(blob);
- try{const canvas=document.createElement('canvas');canvas.width=image.height;canvas.height=image.width;const ctx=canvas.getContext('2d');ctx.translate(canvas.width,0);ctx.rotate(Math.PI/2);ctx.drawImage(image,0,0);const result=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',0.9));if(!result)throw Error('Could not rotate photo.');return result;}finally{image.close();}
+ // A turn is a third lossy pass on a photo already encoded twice, so it is
+ // encoded close to the quality the server stores at rather than below it.
+ try{const canvas=document.createElement('canvas');canvas.width=image.height;canvas.height=image.width;const ctx=canvas.getContext('2d');ctx.translate(canvas.width,0);ctx.rotate(Math.PI/2);ctx.drawImage(image,0,0);return await encodeFitting(canvas,[0.92,0.86,0.8],'Could not rotate photo.');}finally{image.close();}
 }
 $('quickCancel').onclick=()=>{if(busy)return;clearQuickPhotos();$('quickEntry').close();};
 $('quickEntry').oncancel=e=>{if(busy)e.preventDefault();else clearQuickPhotos();};
@@ -447,8 +463,15 @@ $('saveEntryRate').onclick=()=>task(async()=>{const rate=Number($('entryRate').v
 async function portraitBlob(file){
  if(!['image/jpeg','image/png'].includes(file.type)||file.size>25*1024*1024)throw Error('Use a JPG/PNG photo up to 25 MB.');
  const image=await createImageBitmap(file);
- try{const scale=Math.min(1,1600/Math.max(image.width,image.height)),canvas=document.createElement('canvas'),rotate=image.width>image.height,w=Math.max(1,Math.round(image.width*scale)),h=Math.max(1,Math.round(image.height*scale));canvas.width=rotate?h:w;canvas.height=rotate?w:h;const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);if(rotate){ctx.translate(h,0);ctx.rotate(Math.PI/2);}ctx.drawImage(image,0,0,w,h);
- const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',0.85));if(!blob)throw Error('Could not prepare photo.');return blob;
+ try{const scale=Math.min(1,2400/Math.max(image.width,image.height)),canvas=document.createElement('canvas'),rotate=image.width>image.height,w=Math.max(1,Math.round(image.width*scale)),h=Math.max(1,Math.round(image.height*scale));canvas.width=rotate?h:w;canvas.height=rotate?w:h;const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+ // A canvas defaults to imageSmoothingQuality 'low', which samples a few
+ // source pixels per destination pixel. Reducing a 12-megapixel phone photo
+ // that way aliases the result: speckled foil, broken small text, noisy
+ // edges. That is the grain, and it happens here, before the server ever
+ // sees the photo.
+ ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+ if(rotate){ctx.translate(h,0);ctx.rotate(Math.PI/2);}ctx.drawImage(image,0,0,w,h);
+ return await encodeFitting(canvas,[0.9,0.84,0.78],'Could not prepare photo.');
  }finally{image.close();}
 }
 async function entryPhoto(file,prepared=false){
