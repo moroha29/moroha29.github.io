@@ -69,3 +69,7 @@
 #saleInputs{max-height:50vh;overflow:auto}#saleInputs label{display:block;margin:14px 0;line-height:1.5}#saleInputs input{display:block;width:100%;margin-top:6px}
 
 .quickPhotoSide{flex:1;min-width:0}.quickPhotoSide .filebutton{display:block}.quickPhotoSide>button{width:100%;margin-top:8px}
+
+#marketplaceDialog{width:min(760px,94vw);max-height:90vh;overflow:auto} .marketSection{margin:1.5rem 0;padding-top:1rem;border-top:1px solid #526052} .marketSection label{display:block;margin:.8rem 0} .marketSection input,.marketSection textarea,.marketSection select{display:block;width:100%;box-sizing:border-box;margin-top:.35rem} .marketDestination{padding:1rem;margin:.8rem 0;border:1px solid #526052;border-radius:12px} .marketPreview{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;line-height:1.5;padding:1rem;background:#142019;border-radius:10px} .marketplaceDetails{display:block;margin-top:.6rem}
+/* Keep the copy preview readable in the light inventory theme. */
+#marketplaceDialog .marketPreview{background:#eef3eb;color:#183327}

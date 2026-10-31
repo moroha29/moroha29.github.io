@@ -6,6 +6,7 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
  const page=await browser.newPage({viewport:{width:Number(process.env.INVENTORY_WIDTH||1440),height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
  const base=path.resolve(__dirname,'../web-portfolio/public/card_manager');let drafts=[],stock=[],next=1,failStockId=0,failDeleteId=0,photoRequests=0,activePhotos=0,maxPhotos=0,searchRequests=0,dataRequests=0;
  let limitedSeller=false,entryRate=0,expenses=[],trades=[],referenceRequests=0;
+ let marketSettings={template:'🔄 Trades welcome at 75–90% in my favour\n📦 Tracked mailing: +$3',revision:0,destinations:[]},marketLinks={};
  let carousellBatches=[],batchNext=1,template={intro:'Tap a card link → Start in Telegram → view photos or make an offer.',item:'{card} ({condition}) - S${price}\n{link}',outro:'',revision:0};
  const batchView=b=>{const items=b.ids.map(id=>{const row=stock.find(r=>r.stockId===id);return row?{stockId:id,name:row.name,condition:row.condition,price:row.price,sold:row.sold,deleted:false}:{stockId:id,name:'Deleted card',price:0,deleted:true};});
  const live=items.filter(i=>!i.sold&&!i.deleted);const description=live.length?[template.intro,...live.map(i=>template.item.replaceAll('{card}',i.name).replaceAll('{condition}',i.condition).replaceAll('{price}',(i.price/100).toFixed(2)).replaceAll('{link}','https://t.me/testbot?start=listing_'+i.stockId)),template.outro].filter(Boolean).join('\n\n'):'';
@@ -32,6 +33,13 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
    else if(action==='search')result=[{id:93097,name:'Eevee ex SAR [224/187]',productNumber:'224/187',thumbnailUrl:'https://cdn.snkrdunk.com/card.png'}];
    if(action==='reference'){referenceRequests++;result={imageURL:'https://bilgewatermarket.com/assets/'+body.cardId+'.webp'};}
    if(action==='settings'){entryRate=body.jpyPerSgd;result={ok:true};}
+   if(action==='marketplace'){
+    if(body.action==='settings')result=marketSettings;
+    if(body.action==='template'){assert.equal(body.revision,marketSettings.revision);marketSettings.template=body.template;marketSettings.revision++;result={ok:true};}
+    if(body.action==='destination'){const d=body.destination;if(d.id){const old=marketSettings.destinations.find(x=>x.id===d.id);assert.equal(old.revision,d.revision);Object.assign(old,d,{revision:d.revision+1});}else marketSettings.destinations.push({...d,id:1,revision:1});result={ok:true};}
+    if(body.action==='listing')result={template:marketSettings.template,carousell:marketLinks[body.stockId]||{stockId:body.stockId,url:'',title:'',notes:'',status:'not_listed',revision:0},telegram:[]};
+    if(body.action==='link'){marketLinks[body.link.stockId]={...body.link,revision:body.link.revision+1};result={ok:true};}
+   }
    if(action==='rotate'){assert.equal(body.degrees,90);assert(body.photo);result={photo:'web:'+String(next++).padStart(24,'0')+'.jpg'};}
    if(action==='upload'){assert(route.request().postDataBuffer().length<5*1024*1024,'photo must be resized before upload');assert(route.request().postData().includes('name="prepared"'),'prepared orientation flag missing');}
    if(action==='upload')result={photo:'web:'+String(next++).padStart(24,'0')+'.jpg'};
@@ -240,6 +248,16 @@ if(process.env.INVENTORY_SCREENSHOT)await page.screenshot({path:process.env.INVE
  await page.locator('#expenses button').filter({hasText:'Edit'}).click();await page.locator('#expenseAmount').fill('75');await page.locator('#expenseSave').click();await page.waitForFunction(()=>document.querySelector('#expenses').textContent.includes('75.00'));assert.equal(expenses.length,1);assert.equal(expenses[0].amount,7500);
  await page.locator('#expenses button').filter({hasText:'Delete'}).click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('#status').textContent==='Expense removed.');assert.equal(expenses.length,0);
  console.log('PASS: trade preview, exact cost allocation, locked carried cost, expense validation/edit/delete');
+ await page.locator('#automationSettings').click();await page.getByRole('heading',{name:'Automation & marketplaces',exact:true}).waitFor();
+ await page.getByLabel('Posting template',{exact:true}).fill('Offers welcome. Tracked mail +$3.');await page.getByRole('button',{name:'Save posting template',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#status').textContent==='Posting template saved.');
+ await page.getByLabel('Group name',{exact:true}).fill('Pokémon marketplace');await page.getByLabel('Group link or chat ID',{exact:true}).fill('-100987654321');await page.getByLabel('Topic ID (0 for no topic)',{exact:true}).fill('7');await page.getByRole('button',{name:'Add & enable',exact:true}).click();await page.getByRole('button',{name:'Disable',exact:true}).waitFor();assert.equal(marketSettings.destinations[0].topicId,7);
+ await page.getByRole('button',{name:'Disable',exact:true}).click();await page.getByRole('button',{name:'Enable',exact:true}).waitFor();assert.equal(marketSettings.destinations[0].enabled,false);
+ assert((await page.locator('#marketplaceDialog').textContent()).includes('TCGplayer · Not connected'));
+ if(process.env.MARKETPLACE_SCREENSHOT)await page.screenshot({path:process.env.MARKETPLACE_SCREENSHOT});
+ await page.locator('#marketplaceDialog').getByRole('button',{name:'Close',exact:true}).click();await page.locator('[data-tab=stock]').click();await page.locator('.marketplaceDetails').first().click();await page.getByRole('heading',{name:'Carousell listing',exact:true}).waitFor();
+ await page.locator('#marketplaceDialog').getByLabel('Carousell listing URL',{exact:true}).fill('https://www.carousell.sg/p/test-card-123/');await page.getByLabel('Carousell listing title',{exact:true}).fill('Test listing');await page.getByLabel('Listing details / notes',{exact:true}).fill('Meetup preferred');await page.getByLabel('Carousell status',{exact:true}).selectOption('listed');await page.getByRole('button',{name:'Save Carousell details',exact:true}).click();await page.getByRole('link',{name:'Open Carousell listing ↗'}).waitFor();assert.equal(Object.values(marketLinks)[0].status,'listed');assert.equal(await page.getByLabel('Listing details / notes',{exact:true}).inputValue(),'Meetup preferred');
+ await page.locator('#marketplaceDialog').getByRole('button',{name:'Close',exact:true}).click();
+ console.log('PASS: marketplace template, destination enable/disable, TCGplayer status and per-listing Carousell details');
  limitedSeller=true;stock=[];drafts=[];expenses=[];trades=[];await page.locator('#refresh').click();await page.waitForFunction(()=>document.querySelector('#accountingPanel').hidden);
  assert(await page.locator('[data-tab=carousell]').isHidden());assert(await page.locator('#trade').isHidden());assert(await page.locator('#makeBatch').isHidden());assert(await page.locator('#saveEntryRate').isHidden());assert.equal(await page.locator('#rows tr').count(),0);
  console.log('PASS: limited seller manager hides owner-only features and replaces inventory');
