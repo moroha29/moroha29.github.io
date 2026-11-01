@@ -498,16 +498,72 @@ function marketShell(title){marketDialog.replaceChildren();const h=el('h2',title
 function marketField(parent,label,value='',multiline=false){const wrap=el('label',label),input=el(multiline?'textarea':'input');input.value=value;input.setAttribute('aria-label',label);if(multiline)input.rows=5;wrap.append(input);parent.append(wrap);return input;}
 function marketAction(parent,label,fn){const button=el('button',label);button.type='button';button.onclick=()=>task(async()=>{button.disabled=true;try{await fn();}catch(e){const error=el('p',e.message,'rowerror');error.setAttribute('role','alert');parent.append(error);throw e;}finally{button.disabled=false;}});parent.append(button);return button;}
 function safeMarketLink(parent,url,label){try{const u=new URL(url);if(u.protocol!=='https:')return;const a=el('a',label);a.href=u.href;a.target='_blank';a.rel='noopener noreferrer';parent.append(a);}catch{}}
+function accountSteps(parent){
+ const steps=el('ol',undefined,'hint');
+ for(const step of ['Open my.telegram.org/apps and sign in with the phone number you want listings to come from.','Create an application — any title and short name will do — then copy its App api_id and App api_hash.','Paste both here with that phone number. Telegram then sends a login code to your Telegram app, never to a group.'])steps.append(el('li',step));
+ parent.append(steps);safeMarketLink(parent,'https://my.telegram.org/apps','Open my.telegram.org/apps ↗');
+}
+function accountForm(parent,title){
+ const form=el('div',undefined,'marketDestination');form.append(el('h4',title));
+ const id=marketField(form,'App api_id'),hash=marketField(form,'App api_hash'),phone=marketField(form,'Phone number, with country code');
+ id.inputMode='numeric';hash.autocomplete='off';hash.spellcheck=false;phone.placeholder='+6591234567';
+ form.append(el('p','Kept on the shop server and encrypted there. The app hash and the login session are never sent back to this page.','hint'));
+ marketAction(form,'Save details',async()=>{
+  if(!/^\d{1,9}$/.test(id.value.trim()))throw Error('The api_id is the number shown on my.telegram.org.');
+  if(!/^[0-9a-fA-F]{32}$/.test(hash.value.trim()))throw Error('The api_hash is 32 hexadecimal characters.');
+  if(!/^\+?\d{7,18}$/.test(phone.value.replace(/\s/g,'')))throw Error('Enter the phone number with its country code.');
+  await api('account',{action:'credentials',apiId:Number(id.value.trim()),apiHash:hash.value.trim().toLowerCase(),phone:phone.value.replace(/\s/g,'')});
+  hash.value='';status('Telegram app details saved.');await openMarketplaceSettings();});
+ parent.append(form);
+}
+function accountSection(data){
+ const a=data.account||{},state=a.state||'unconfigured',s=el('section',undefined,'marketSection');
+ s.append(el('h3','Post listings as your own Telegram account'));
+ s.append(el('p','The bot is the author of every marketplace post until you connect your own account here. The connection is used for one thing: publishing a listing. There is no test message, nothing else is ever sent to your groups, and your conversations are never read.','hint'));
+ if(a.detail)s.append(el('p',a.detail,'hint'));
+ if(state==='connected'){
+  s.append(el('p','Connected'+(a.username?' as @'+a.username:'')+(a.name?' · '+a.name:'')+(a.phone?' · '+a.phone:''),'marketConnected'));
+  if(a.since)s.append(el('p','Signed in '+new Date(a.since).toLocaleString()+'. Telegram lists it under Settings → Devices as “Card shop manager”, where you can end it at any time.','hint'));
+  const choice=el('div',undefined,'marketDestination');choice.append(el('h4','Who signs new listings'));
+  choice.append(el('p','Now: '+(data.sender==='account'?'your own account':'the bot')+'. Listings already posted keep whoever sent them, because Telegram lets only the author edit a message.','hint'));
+  marketAction(choice,data.sender==='account'?'Go back to posting as the bot':'Post new listings as me',async()=>{await api('account',{action:'sender',sender:data.sender==='account'?'bot':'account'});status('Saved.');await openMarketplaceSettings();});
+  s.append(choice);
+  const end=el('div',undefined,'marketDestination');end.append(el('h4','End the connection'));
+  end.append(el('p','Disconnect signs this session out of Telegram and keeps your app details. Remove everything deletes them too.','hint'));
+  marketAction(end,'Disconnect',async()=>{await api('account',{action:'disconnect'});status('Telegram account disconnected.');await openMarketplaceSettings();});
+  marketAction(end,'Remove everything',async()=>{await api('account',{action:'forget'});status('Saved Telegram details removed.');await openMarketplaceSettings();});
+  s.append(end);return s;
+ }
+ if(state==='unconfigured'){accountSteps(s);accountForm(s,'Step 3 · Your Telegram app details');return s;}
+ const sign=el('div',undefined,'marketDestination');sign.append(el('h4','Sign in'+(a.phone?' · '+a.phone:'')));
+ if(state==='password_needed'){
+  const pw=marketField(sign,'Two-step verification password');pw.type='password';pw.autocomplete='off';
+  sign.append(el('p','Used once to finish this login and never stored.','hint'));
+  marketAction(sign,'Unlock',async()=>{if(!pw.value)throw Error('Enter your two-step verification password.');await api('account',{action:'password',password:pw.value});pw.value='';await openMarketplaceSettings();});
+ }else if(state==='code_sent'){
+  const code=marketField(sign,'Login code from your Telegram app');code.inputMode='numeric';code.autocomplete='one-time-code';
+  marketAction(sign,'Sign in',async()=>{if(!/^\d{4,8}$/.test(code.value.trim()))throw Error('Enter the digits Telegram sent you.');await api('account',{action:'signin',code:code.value.trim()});code.value='';await openMarketplaceSettings();});
+  marketAction(sign,'Send a new code',async()=>{await api('account',{action:'code'});await openMarketplaceSettings();});
+ }else{
+  sign.append(el('p','Telegram sends the code to the Telegram app on that number. No group is contacted.','hint'));
+  marketAction(sign,'Send me a login code',async()=>{await api('account',{action:'code'});await openMarketplaceSettings();});
+ }
+ s.append(sign);accountForm(s,'Use a different Telegram app or number');return s;
+}
 $('automationSettings').onclick=()=>task(openMarketplaceSettings);
 async function openMarketplaceSettings(){
- const session=token;const data=await api('marketplace',{action:'settings'});if(!token||token!==session)return;marketShell('Automation & marketplaces');
+ const session=token;const data=await api('marketplace',{action:'settings'});
+ // Owner-only, so a seller account simply gets no panel rather than a broken dialog.
+ let account=null;try{account=await api('account',{action:'status'});}catch{}
+ if(!token||token!==session)return;marketShell('Automation & marketplaces');
  marketDialog.append(el('p','Telegram: automatic on publication. Carousell: manually linked and tracked. TCGplayer: not connected.','hint'));
+ if(account)marketDialog.append(accountSection(account));
  const section=el('section',undefined,'marketSection');section.append(el('h3','Your posting template'));
  section.append(el('p','Appended below the card name, grade, asking price and private-offer link. Applies to future posts and later listing updates.','hint'));
  const templateInput=marketField(section,'Posting template',data.template,true);templateInput.maxLength=1800;
  const preview=el('pre',undefined,'marketPreview');const updatePreview=()=>preview.textContent='Example card · PSA 10 · SGD 100.00\nPhotos / private offer: https://t.me/'+bot+'?start=listing_123\n\n'+templateInput.value;templateInput.oninput=updatePreview;updatePreview();section.append(preview);
  marketAction(section,'Save posting template',async()=>{await api('marketplace',{action:'template',template:templateInput.value,revision:data.revision});status('Posting template saved.');await openMarketplaceSettings();});marketDialog.append(section);
- const destinations=el('section',undefined,'marketSection');destinations.append(el('h3','Telegram marketplaces'),el('p','Add the bot to each marketplace and check its posting rules. Only newly published listings are queued. Disabling a destination stops new posts; existing posts still receive sold updates.','hint'));
+ const destinations=el('section',undefined,'marketSection');destinations.append(el('h3','Telegram marketplaces'),el('p',(account&&account.sender==='account'?'You must be a member of each marketplace; the bot does not have to be. ':'Add the bot to each marketplace and check its posting rules. ')+'Only newly published listings are queued. Disabling a destination stops new posts; existing posts still receive sold updates.','hint'));
  for(const d of data.destinations||[]){const row=el('div',undefined,'marketDestination');row.append(el('strong',d.name),el('p',(d.enabled?'Enabled':'Disabled')+' · '+d.chatId+(d.topicId?' · topic '+d.topicId:'')));
  marketAction(row,d.enabled?'Disable':'Enable',async()=>{await api('marketplace',{action:'destination',destination:{...d,enabled:!d.enabled}});await openMarketplaceSettings();});destinations.append(row);}
  const form=el('div',undefined,'marketDestination');form.append(el('h4','Add destination'));
