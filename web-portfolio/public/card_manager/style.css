@@ -75,3 +75,12 @@
 #marketplaceDialog .marketPreview{background:#eef3eb;color:#183327}
 /* The connected account must be obvious at a glance, and the setup steps readable as a list. */
 #marketplaceDialog .marketConnected{margin:.7rem 0;padding:.75rem 1rem;border-radius:10px;background:#e7f0e3;border:1px solid #9bbd97;color:#1b3a24;font-weight:700} #marketplaceDialog ol.hint{margin:.6rem 0 .6rem 1.2rem;padding:0} #marketplaceDialog ol.hint li{margin:.35rem 0;color:#667065;line-height:1.65}
+
+/* The combined inventory is read-only, so its rows carry no inputs and the
+   controls sit in one row above the table rather than in the edit toolbar. */
+#centralPanel{padding:18px 0}
+#centralPanel label{margin-right:8px}
+#centralPanel select,#centralPanel input[type=search]{margin-right:10px}
+#centralPanel input[type=search]{width:280px;max-width:100%}
+#centralPanel td.centralSeller{white-space:nowrap;font-weight:600;color:#36563c}
+@media(max-width:750px){#centralPanel input[type=search]{width:100%;margin:8px 0}}
