@@ -6,7 +6,19 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
  const page=await browser.newPage({viewport:{width:Number(process.env.INVENTORY_WIDTH||1440),height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
  const base=path.resolve(__dirname,'../web-portfolio/public/card_manager');let drafts=[],stock=[],next=1,failStockId=0,failDeleteId=0,photoRequests=0,activePhotos=0,maxPhotos=0,searchRequests=0,dataRequests=0;
  let limitedSeller=false,entryRate=0,expenses=[],trades=[],referenceRequests=0;
- let marketSettings={template:'🔄 Trades welcome at 75–90% in my favour\n📦 Tracked mailing: +$3',revision:0,destinations:[]},marketLinks={};
+ let marketSettings={template:'🔄 Trades welcome at 75–90% in my favour\n📦 Tracked mailing: +$3',revision:0,destinations:[],sender:'bot'},marketLinks={};
+ // No account is connected, which is the state a fresh install is in and the
+ // one that shows the setup steps rather than a signed-in badge.
+ const userAccount={state:'unconfigured'};
+ let centralRequests=0;
+ const centralInventory={
+  stock:[
+   {stockId:9001,cardId:93097,name:'House Charizard',condition:'NM',slab:'PSA 9',cost:100000,price:220000,photos:[],revision:1,sold:false,sale:0,consignment:false,websiteUrl:'',tradeIn:'',included:'',owner:0,seller:'House'},
+   {stockId:9002,cardId:0,name:'Dealer Iron Valiant',condition:'NM',slab:'PSA 10',cost:50000,price:95000,photos:[],revision:1,sold:false,sale:0,consignment:false,websiteUrl:'',tradeIn:'',included:'',owner:68214,seller:'@dealer'}],
+  sellers:[
+   {seller:'House',owner:0,units:1,soldUnits:0,spent:100000,revenue:0,soldCost:0,inventoryCost:100000},
+   {seller:'@dealer',owner:68214,units:1,soldUnits:0,spent:50000,revenue:0,soldCost:0,inventoryCost:50000}],
+  totals:{Units:2,SoldUnits:0,Spent:150000,Revenue:0,SoldCost:0,InventoryCost:150000,ConsignmentPayout:0,ConsignmentFees:0,Expenses:0}};
  let carousellBatches=[],batchNext=1,template={intro:'Tap a card link → Start in Telegram → view photos or make an offer.',item:'{card} ({condition}) - S${price}\n{link}',outro:'',revision:0};
  const batchView=b=>{const items=b.ids.map(id=>{const row=stock.find(r=>r.stockId===id);return row?{stockId:id,name:row.name,condition:row.condition,price:row.price,sold:row.sold,deleted:false}:{stockId:id,name:'Deleted card',price:0,deleted:true};});
  const live=items.filter(i=>!i.sold&&!i.deleted);const description=live.length?[template.intro,...live.map(i=>template.item.replaceAll('{card}',i.name).replaceAll('{condition}',i.condition).replaceAll('{price}',(i.price/100).toFixed(2)).replaceAll('{link}','https://t.me/testbot?start=listing_'+i.stockId)),template.outro].filter(Boolean).join('\n\n'):'';
@@ -33,6 +45,16 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
    else if(action==='search')result=[{id:93097,name:'Eevee ex SAR [224/187]',productNumber:'224/187',thumbnailUrl:'https://cdn.snkrdunk.com/card.png'}];
    if(action==='reference'){referenceRequests++;result={imageURL:'https://bilgewatermarket.com/assets/'+body.cardId+'.webp'};}
    if(action==='settings'){entryRate=body.jpyPerSgd;result={ok:true};}
+   // The owner's own Telegram account. The manager asks for this whenever the
+   // automation dialog opens, so leaving it unhandled failed every publish of
+   // this page from the day that feature shipped.
+   if(action==='account'){
+    if(body.action==='status')result={account:userAccount,sender:marketSettings.sender||'bot'};
+    if(body.action==='sender'){marketSettings.sender=body.sender;result={account:userAccount,sender:body.sender};}
+   }
+   // Every seller's stock in one answer. Owner-only on the server, which is
+   // why the seller run below asserts it is never even asked for.
+   if(action==='central'){centralRequests++;result=centralInventory;}
    if(action==='marketplace'){
     if(body.action==='settings')result=marketSettings;
     if(body.action==='template'){assert.equal(body.revision,marketSettings.revision);marketSettings.template=body.template;marketSettings.revision++;result={ok:true};}
@@ -258,8 +280,37 @@ if(process.env.INVENTORY_SCREENSHOT)await page.screenshot({path:process.env.INVE
  await page.locator('#marketplaceDialog').getByLabel('Carousell listing URL',{exact:true}).fill('https://www.carousell.sg/p/test-card-123/');await page.getByLabel('Carousell listing title',{exact:true}).fill('Test listing');await page.getByLabel('Listing details / notes',{exact:true}).fill('Meetup preferred');await page.getByLabel('Carousell status',{exact:true}).selectOption('listed');await page.getByRole('button',{name:'Save Carousell details',exact:true}).click();await page.getByRole('link',{name:'Open Carousell listing ↗'}).waitFor();assert.equal(Object.values(marketLinks)[0].status,'listed');assert.equal(await page.getByLabel('Listing details / notes',{exact:true}).inputValue(),'Meetup preferred');
  await page.locator('#marketplaceDialog').getByRole('button',{name:'Close',exact:true}).click();
  console.log('PASS: marketplace template, destination enable/disable, TCGplayer status and per-listing Carousell details');
+ // The combined inventory. It is fetched when the tab is first opened rather
+ // than at sign-in, so the owner's bootstrap must not have asked for it.
+ assert.equal(centralRequests,0,'the combined inventory was fetched before anybody opened it');
+ await page.locator('[data-tab=central]').click();
+ await page.locator('#centralPanel').waitFor({state:'visible'});
+ await page.waitForFunction(()=>document.querySelectorAll('#centralRows tr').length===2);
+ assert.equal(centralRequests,1);
+ assert((await page.locator('#centralRows').innerText()).includes('@dealer'),'another seller\'s row is missing');
+ assert((await page.locator('#centralTotals').innerText()).includes('1500.00'),'the combined total is wrong');
+ // Choosing a seller must move the figures too: a whole-shop number sitting
+ // above one seller's rows is the kind somebody quotes by mistake.
+ await page.locator('#centralSeller').selectOption('68214');
+ await page.waitForFunction(()=>document.querySelectorAll('#centralRows tr').length===1);
+ assert((await page.locator('#centralTotals').innerText()).includes('500.00'));
+ assert.equal(centralRequests,1,'filtering refetched instead of using what it had');
+ await page.locator('#centralSeller').selectOption('all');
+ await page.locator('[data-tab=stock]').click();
+ console.log('PASS: combined inventory lists every seller, loads lazily and filters per seller');
  limitedSeller=true;stock=[];drafts=[];expenses=[];trades=[];await page.locator('#refresh').click();await page.waitForFunction(()=>document.querySelector('#accountingPanel').hidden);
  assert(await page.locator('[data-tab=carousell]').isHidden());assert(await page.locator('#trade').isHidden());assert(await page.locator('#makeBatch').isHidden());assert(await page.locator('#saveEntryRate').isHidden());assert.equal(await page.locator('#rows tr').count(),0);
+ assert(await page.locator('[data-tab=central]').isHidden());
+ // A seller clicking the hidden tab by hand must not even ask the server. The
+ // server refuses them anyway; this is so the client never tries.
+ const askedBefore=centralRequests;
+ // dispatchEvent rather than click: the tab is display:none, so a real click
+ // cannot land on it, and what is being tested is somebody firing the handler
+ // anyway from the console.
+ await page.locator('[data-tab=central]').dispatchEvent('click');
+ await page.waitForTimeout(300);
+ assert.equal(await page.locator('#centralPanel').isVisible(),false,'a seller reached the combined inventory');
+ assert.equal(centralRequests,askedBefore,'a seller asked the server for every seller\'s costs');
  console.log('PASS: limited seller manager hides owner-only features and replaces inventory');
  await page.evaluate(()=>{const original=window.fetch;window.fetch=(url,options)=>String(url).endsWith('/logout')?Promise.reject(new TypeError('Network unavailable')):original(url,options);});
  await page.locator('#logout').click();await page.locator('#login').waitFor({state:'visible'});
