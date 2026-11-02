@@ -3,6 +3,11 @@
 const $=id=>document.getElementById(id);
 let limitedSeller=false, token='', tab='drafts', drafts=[], stock=[], selected=new Set(), dirty=new Set(), busy=false, bot='jhcardbot', searchSeq=0;
 let batches=[],template={},templateDirty=false,entryRate=0,expenses=[],trades=[];
+// The combined inventory is held apart from `stock` on purpose. `stock` is
+// this account's own and every edit path writes to it; these rows belong to
+// other sellers and are only ever read, so mixing them would put another
+// seller's card one careless click from an edit this view cannot make.
+let centralRows=[],centralSellers=[],centralTotals=null,centralOwner='all',centralLoaded=false;
 const batchFor=r=>batches.find(b=>b.items.some(i=>i.stockId===r.stockId));
 const photos=new Map(),photoLoads=new Map(),photoSizes=new Map();
 let photoBytes=0,activePhotos=0;const photoWaiters=[];
@@ -18,7 +23,7 @@ async function photoSlot(fn){
 const photoObserver=new IntersectionObserver(entries=>{for(const entry of entries)if(entry.isIntersecting){photoObserver.unobserve(entry.target);thumb(entry.target.dataset.photo,entry.target);}}, {rootMargin:'250px'});
 const photoLabel=i=>i===0?'Front':i===1?'Back':i<6?'Front corner '+(i-1):'Back corner '+(i-5);
 const key=r=>r.stockId?'stock:'+r.stockId:r.id;
-const shown=()=> tab==='carousell'?[]:(tab==='drafts'?drafts:stock.filter(r=>tab==='sold'?r.sold:!r.sold)).filter(r=>(r.name+' '+(r.included||'')+' '+r.cardId+' '+(r.stockId||'')).toLowerCase().includes($('filter').value.toLowerCase())).filter(r=>tab!=='stock'||!$('unassigned').checked||!batchFor(r));
+const shown=()=> (tab==='carousell'||tab==='central')?[]:(tab==='drafts'?drafts:stock.filter(r=>tab==='sold'?r.sold:!r.sold)).filter(r=>(r.name+' '+(r.included||'')+' '+r.cardId+' '+(r.stockId||'')).toLowerCase().includes($('filter').value.toLowerCase())).filter(r=>tab!=='stock'||!$('unassigned').checked||!batchFor(r));
 const money=c=>(Number(c||0)/100).toFixed(2);
 const newID=()=>Array.from(crypto.getRandomValues(new Uint8Array(12)),b=>b.toString(16).padStart(2,'0')).join('');
 function status(text,error=false){$('status').textContent=text;$('status').style.background=error?'#8b3535':'#253d2c';}
@@ -36,11 +41,14 @@ async function api(path,body={},blob=false,signal){
  }catch(e){if(timeout.aborted)throw Error('Request timed out. Reload inventory before retrying changes.');throw e;}
 }
 
-function signOut(clear=true){token='';const md=document.getElementById('marketplaceDialog');if(md){md.close();md.replaceChildren();}$('quickEntry').close();clearQuickPhotos();entryRate=0;quickCard=null;batches=[];expenses=[];trades=[];$('expenses').replaceChildren();$('trades').replaceChildren();['tradeDialog','expenseDialog','saleEntry'].forEach(id=>$(id).close());template={};templateDirty=false;$('batches').replaceChildren();['templateIntro','templateItem','templateOutro'].forEach(id=>$(id).value='');searchSeq++;clearTimeout(searchTimer);searchAbort?.abort();searchCache.clear();photoLoads.clear();drafts=[];stock=[];selected.clear();dirty.clear();for(const url of photos.values())URL.revokeObjectURL(url);photos.clear();photoSizes.clear();photoBytes=0;photoObserver.disconnect();referenceObserver.disconnect();referenceLoads.clear();$('rows').replaceChildren();$('results').replaceChildren();$('workspace').hidden=true;$('login').hidden=false;$('logout').hidden=true;$('password').value='';if(clear)status('Signed out.');}
+function signOut(clear=true){token='';const md=document.getElementById('marketplaceDialog');if(md){md.close();md.replaceChildren();}$('quickEntry').close();clearQuickPhotos();entryRate=0;quickCard=null;batches=[];expenses=[];trades=[];$('expenses').replaceChildren();$('trades').replaceChildren();['tradeDialog','expenseDialog','saleEntry'].forEach(id=>$(id).close());template={};templateDirty=false;$('batches').replaceChildren();['templateIntro','templateItem','templateOutro'].forEach(id=>$(id).value='');searchSeq++;clearTimeout(searchTimer);searchAbort?.abort();searchCache.clear();photoLoads.clear();drafts=[];stock=[];selected.clear();dirty.clear();centralRows=[];centralSellers=[];centralTotals=null;centralLoaded=false;centralOwner='all';$('centralRows').replaceChildren();$('centralSeller').replaceChildren();delete $('centralSeller').dataset.owners;$('centralFilter').value='';for(const url of photos.values())URL.revokeObjectURL(url);photos.clear();photoSizes.clear();photoBytes=0;photoObserver.disconnect();referenceObserver.disconnect();referenceLoads.clear();$('rows').replaceChildren();$('results').replaceChildren();$('workspace').hidden=true;$('login').hidden=false;$('logout').hidden=true;$('password').value='';if(clear)status('Signed out.');}
 async function task(fn){if(busy)return;lock(true);try{await fn();}catch(e){status(e.message,true);}finally{lock(false);if(!$('workspace').hidden)render();}}
 async function load(preserve=false,initialData){
  const pending=preserve?[...drafts,...stock].filter(r=>dirty.has(key(r))):[];
- const data=initialData||await api('data');limitedSeller=!!data.limitedSeller;$('accountingPanel').hidden=limitedSeller;document.querySelector('[data-tab=carousell]').hidden=limitedSeller;$('saveEntryRate').hidden=limitedSeller;$('entryRate').readOnly=limitedSeller;if(limitedSeller&&tab==='carousell')tab='drafts';drafts=data.drafts||[];stock=(data.stock||[]).map(r=>({...r,sale:r.sold?r.sale:r.price}));bot=data.bot||bot;entryRate=data.jpyPerSgd||0;$('entryRate').value=entryRate||'';batches=data.carousell?.batches||[];if(!templateDirty){template=data.carousell?.template||{};$('templateIntro').value=template.intro||'';$('templateItem').value=template.item||'';$('templateOutro').value=template.outro||'';}selected.clear();dirty.clear();
+ const data=initialData||await api('data');limitedSeller=!!data.limitedSeller;$('accountingPanel').hidden=limitedSeller;document.querySelector('[data-tab=carousell]').hidden=limitedSeller;document.querySelector('[data-tab=central]').hidden=limitedSeller;$('saveEntryRate').hidden=limitedSeller;$('entryRate').readOnly=limitedSeller;if(limitedSeller&&(tab==='carousell'||tab==='central'))tab='drafts';
+ // A seller must not keep another seller's rows in memory across a sign-out
+ // and a sign-in as someone else in the same browser tab.
+ if(limitedSeller){centralRows=[];centralSellers=[];centralTotals=null;centralLoaded=false;centralOwner='all';}drafts=data.drafts||[];stock=(data.stock||[]).map(r=>({...r,sale:r.sold?r.sale:r.price}));bot=data.bot||bot;entryRate=data.jpyPerSgd||0;$('entryRate').value=entryRate||'';batches=data.carousell?.batches||[];if(!templateDirty){template=data.carousell?.template||{};$('templateIntro').value=template.intro||'';$('templateItem').value=template.item||'';$('templateOutro').value=template.outro||'';}selected.clear();dirty.clear();
  expenses=data.expenses||[];trades=data.trades||[];renderAccounting();
  const t=data.totals;$('totals').replaceChildren();
  for(const [label,value] of [['Inventory cost',t.InventoryCost],['Sales',t.Revenue],['Net profit',t.Revenue-t.SoldCost-t.ConsignmentPayout-(t.Expenses||0)],['Expenses',t.Expenses||0],['Stock cost basis',t.Spent]]){
@@ -100,7 +108,7 @@ function render(){
  const averages=inventoryAverages();
  $('draftCount').textContent=drafts.length;$('stockCount').textContent=stock.filter(r=>!r.sold).length;$('soldCount').textContent=stock.filter(r=>r.sold).length;
  document.querySelectorAll('[data-tab]').forEach(n=>n.classList.toggle('active',n.dataset.tab===tab));
- $('batchCount').textContent=batches.length;const isBatch=tab==='carousell';['inventoryToolbar','inventoryTable','inventoryHint','context'].forEach(id=>$(id).hidden=isBatch);$('carousellPanel').hidden=!isBatch;$('makeBatch').hidden=limitedSeller||tab!=='stock';$('unassignedLabel').hidden=limitedSeller||tab!=='stock';if(isBatch)renderBatches();
+ $('batchCount').textContent=batches.length;const isBatch=tab==='carousell',isCentral=tab==='central',isPanel=isBatch||isCentral;['inventoryToolbar','inventoryTable','inventoryHint','context'].forEach(id=>$(id).hidden=isPanel);$('carousellPanel').hidden=!isBatch;$('centralPanel').hidden=!isCentral;if(isCentral)renderCentral();$('makeBatch').hidden=limitedSeller||tab!=='stock';$('unassignedLabel').hidden=limitedSeller||tab!=='stock';if(isBatch)renderBatches();
  $('addPanel').hidden=tab!=='drafts';$('publish').hidden=tab!=='drafts';$('sell').hidden=tab==='drafts';$('sell').textContent=tab==='sold'?'Edit sold price':'Mark sold';$('sellTogether').hidden=tab!=='stock';$('trade').hidden=limitedSeller||tab!=='stock';$('save').hidden=tab==='sold';
  $('context').textContent=tab==='drafts'?'Add cards, then Submit selected. Photos are optional; add them now or later.':tab==='sold'?'Sold prices can be corrected. Delete permanently removes the selected cards from accounting totals.':'Select cards → Mark sold → enter the sale price.';
  const rows=shown();photoObserver.disconnect();$('rows').replaceChildren();$('empty').hidden=rows.length>0;
@@ -129,7 +137,13 @@ function render(){
  });
  counts();if(busy)lock(true);
 }
-document.querySelectorAll('[data-tab]').forEach(n=>n.onclick=()=>{tab=n.dataset.tab;selected.clear();$('filter').value='';$('all').checked=false;render();});
+document.querySelectorAll('[data-tab]').forEach(n=>n.onclick=()=>{if(limitedSeller&&n.dataset.tab==='central')return;tab=n.dataset.tab;selected.clear();$('filter').value='';$('all').checked=false;
+ // Fetched when the tab is first opened rather than at sign-in: it reads every
+ // seller's stock, and most visits here never ask for it.
+ if(tab==='central'&&!centralLoaded)task(loadCentral);else render();});
+$('centralSeller').onchange=()=>{centralOwner=$('centralSeller').value;render();};
+$('centralFilter').oninput=()=>renderCentral();
+$('centralRefresh').onclick=()=>task(async()=>{await loadCentral();status('Combined inventory updated.');});
 $('filter').oninput=render;
 $('unassigned').onchange=()=>{selected.clear();render();};
 $('all').onchange=()=>{shown().forEach(r=>{$('all').checked?selected.add(key(r)):selected.delete(key(r));});render();};
@@ -260,6 +274,56 @@ $('publish').onclick=()=>task(async()=>{
  status((rows.length-failures.size)+' listings published.'+(failures.size?' Some rows failed; check messages.':''),failures.size>0);
 });
 
+async function loadCentral(){
+ // The server is the real gate and answers a seller with 403; this is here so
+ // a hidden tab is not the only thing standing in the way on the client, and
+ // so clicking one by hand asks nothing of the server at all.
+ if(limitedSeller)throw Error('The combined inventory is owner-only.');
+ const data=await api('central');
+ centralRows=data.stock||[];centralSellers=data.sellers||[];centralTotals=data.totals||null;centralLoaded=true;
+ if(centralOwner!=='all'&&!centralSellers.some(s=>String(s.owner)===centralOwner))centralOwner='all';
+}
+function centralShown(){
+ const needle=$('centralFilter').value.trim().toLowerCase();
+ return centralRows.filter(r=>centralOwner==='all'||String(r.owner)===centralOwner)
+  .filter(r=>!needle||(r.name+' '+(r.included||'')+' '+r.cardId+' '+(r.stockId||'')).toLowerCase().includes(needle));
+}
+function renderCentral(){
+ $('centralCount').textContent=centralRows.length;
+ const chosen=centralSellers.find(s=>String(s.owner)===centralOwner);
+ // The headline follows the filter: a figure for the whole shop sitting above
+ // one seller's rows is the kind of number somebody quotes by mistake.
+ const t=chosen||centralTotals;
+ // A seller row is marshalled with lower-case keys and ShopTotals with its Go
+ // field names, so each figure is read under both spellings.
+ $('centralTotals').replaceChildren();
+ if(t)for(const [label,value] of [['On the shelf',t.inventoryCost??t.InventoryCost],['Sales',t.revenue??t.Revenue],['Spent',t.spent??t.Spent]]){
+  const box=el('div',undefined,'stat');box.append(el('span',label),el('strong','$'+money(value)));$('centralTotals').append(box);
+ }
+ if(t){const box=el('div',undefined,'stat');box.append(el('span','Cards'),el('strong',String((t.units??t.Units)??0)));$('centralTotals').append(box);}
+ const picker=$('centralSeller');
+ if(picker.options.length!==centralSellers.length+1||picker.dataset.owners!==centralSellers.map(s=>s.owner).join(',')){
+  picker.replaceChildren();
+  const all=el('option','Everyone');all.value='all';picker.append(all);
+  for(const s of centralSellers){const o=el('option',s.seller+' · '+s.units+(s.units===1?' card':' cards'));o.value=String(s.owner);picker.append(o);}
+  picker.dataset.owners=centralSellers.map(s=>s.owner).join(',');
+ }
+ picker.value=centralOwner;
+ const rows=centralShown();
+ $('centralRows').replaceChildren();$('centralEmpty').hidden=rows.length>0;
+ $('centralEmpty').textContent=centralLoaded?'No cards match this filter.':'Loading the combined inventory…';
+ for(const r of rows){
+  const tr=el('tr');
+  tr.append(el('td',r.seller,'centralSeller'));
+  const card=el('td',undefined,'card');card.append(el('strong',r.name||'Unnamed card'),el('small','Listing #'+r.stockId+(r.cardId?' · SNKR '+r.cardId:' · Custom listing')+(r.included?' · includes '+r.included:'')));
+  tr.append(card);
+  tr.append(el('td',[r.condition,r.slab].filter(Boolean).join(' · ')));
+  tr.append(el('td','S$'+money(r.cost)));
+  tr.append(el('td','S$'+money(r.sold?r.sale:r.price)));
+  tr.append(el('td',r.sold?'Sold':r.consignment?'Consignment':'Available'));
+  $('centralRows').append(tr);
+ }
+}
 function renderAccounting(){
  $('expenses').replaceChildren();$('trades').replaceChildren();
  for(const e of expenses){const row=el('p');row.append(el('span',e.date+' · '+e.description+' · S$'+money(e.amount)+' '));const edit=el('button','Edit'),remove=el('button','Delete');edit.onclick=()=>editExpense(e);remove.onclick=()=>task(async()=>{if(!await confirmAction('Delete expense?',e.description+' · S$'+money(e.amount),[]))return;await api('expense',{expense:e,remove:true});await load(true);status('Expense removed.');});row.append(edit,remove);$('expenses').append(row);}
