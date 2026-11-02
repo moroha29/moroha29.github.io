@@ -31,7 +31,12 @@ jobs:
       - name: Test inventory user flow
         run: |
           npm install --prefix "$RUNNER_TEMP/inventory-tests" playwright@1.64.1 --no-audit --no-fund
+          # Whichever browser this step settles on, the shop step below runs in
+          # its own shell and has to be told: an export here reaches nothing
+          # past this script, and Playwright's own chromium was never
+          # downloaded when the runner already had Chrome.
           if command -v google-chrome >/dev/null 2>&1; then
+            echo "CHROMIUM_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
             export CHROMIUM_PATH="$(command -v google-chrome)"
           else
             "$RUNNER_TEMP/inventory-tests/node_modules/.bin/playwright" install --with-deps chromium
