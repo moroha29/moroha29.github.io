@@ -50,8 +50,12 @@ async function load(preserve=false,initialData){
  // and a sign-in as someone else in the same browser tab.
  if(limitedSeller){centralRows=[];centralSellers=[];centralTotals=null;centralLoaded=false;centralOwner='all';}drafts=data.drafts||[];stock=(data.stock||[]).map(r=>({...r,sale:r.sold?r.sale:r.price}));bot=data.bot||bot;entryRate=data.jpyPerSgd||0;$('entryRate').value=entryRate||'';batches=data.carousell?.batches||[];if(!templateDirty){template=data.carousell?.template||{};$('templateIntro').value=template.intro||'';$('templateItem').value=template.item||'';$('templateOutro').value=template.outro||'';}selected.clear();dirty.clear();
  expenses=data.expenses||[];trades=data.trades||[];renderAccounting();
- const t=data.totals;$('totals').replaceChildren();
- for(const [label,value] of [['Inventory cost',t.InventoryCost],['Sales',t.Revenue],['Net profit',t.Revenue-t.SoldCost-t.ConsignmentPayout-(t.Expenses||0)],['Expenses',t.Expenses||0],['Stock cost basis',t.Spent]]){
+ const t=data.totals,house=t.House||{};$('totals').replaceChildren();
+ // The stock figures span every seller. Expenses are the house ledger and
+ // have no owner column, so the house is the only basis a net profit can
+ // honestly be struck on: charging them against a margin that includes
+ // other sellers' sales would overstate what it costs them to trade here.
+ for(const [label,value] of [['Inventory cost',t.InventoryCost],['Sales',t.Revenue],['Gross margin',t.Revenue-t.SoldCost-(t.ConsignmentPayout||0)],['Stock cost basis',t.Spent],['House net profit',(house.Revenue||0)-(house.SoldCost||0)-(house.ConsignmentPayout||0)-(t.Expenses||0)],['Expenses (house)',t.Expenses||0]]){
   const card=el('div',undefined,'stat');card.append(el('span',label),el('strong','$'+money(value)));$('totals').append(card);
  }
  pending.forEach(r=>{const target=r.stockId?stock:drafts;const index=target.findIndex(x=>key(x)===key(r));if(index<0)target.push(r);else target[index]=r;dirty.add(key(r));});
