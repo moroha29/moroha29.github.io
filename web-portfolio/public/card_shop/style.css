@@ -9,6 +9,7 @@
  --accent: var(--tg-theme-button-color, #2ea6ff);
  --accentText: var(--tg-theme-button-text-color, #ffffff);
  --line: color-mix(in srgb, var(--muted) 30%, transparent);
+ --tabs: 52px;
 }
 * { box-sizing: border-box; }
 /* The rules below give buttons and links a display of their own, which would
@@ -88,3 +89,78 @@ p { margin: 4px 0; }
  background: var(--panel); color: var(--text);
 }
 .status.error { background: #8b3535; color: #fff; }
+
+/* The four tabs. They sit above the searchbar, which is also sticky, so the
+   searchbar's offset below is measured from the same height. */
+.tabs {
+ position: sticky; top: 0; z-index: 3;
+ display: flex; gap: 6px; height: var(--tabs); align-items: center;
+ margin: 0 -16px; padding: 0 16px;
+ background: var(--bg); border-bottom: 1px solid var(--line);
+}
+.tabs button {
+ flex: 1; min-width: 0; padding: 9px 4px; border: 0; border-radius: 10px;
+ background: transparent; color: var(--muted); font: inherit; font-size: 14.5px; cursor: pointer;
+}
+.tabs button.active { background: var(--panel); color: var(--text); font-weight: 600; }
+.badge {
+ display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 3px;
+ border-radius: 999px; background: var(--accent); color: var(--accentText);
+ font-size: 11px; font-weight: 700; line-height: 18px; text-align: center;
+}
+.searchbar { top: var(--tabs); }
+.panel { padding-bottom: 72px; }
+
+/* Filters. One chip per group is active; the first chip in each group is the
+   group switched off, which is why it starts active. */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+.chip {
+ padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px;
+ background: transparent; color: var(--muted); font: inherit; font-size: 13.5px; cursor: pointer;
+}
+.chip.active { background: var(--accent); color: var(--accentText); border-color: transparent; font-weight: 600; }
+details { margin: 0 0 10px; }
+summary { color: var(--muted); font-size: 13.5px; padding: 4px 0; cursor: pointer; }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin: 6px 0 2px; }
+label { display: block; color: var(--muted); font-size: 13px; margin: 8px 0 0; }
+label input, label select, label textarea {
+ display: block; width: 100%; margin-top: 4px; padding: 10px 12px;
+ border: 1px solid var(--line); border-radius: 10px;
+ background: var(--panel); color: var(--text); font: inherit; font-size: 16px;
+}
+label textarea { resize: vertical; }
+.hint { color: var(--muted); font-size: 12.5px; }
+.secondary:disabled, .primary:disabled { opacity: .55; }
+
+/* Cart rows. The thumbnail keeps the grid's aspect ratio at a width that
+   leaves room for the offer field beside it. */
+.cartrow { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.cartrow .frame { width: 72px; flex: none; }
+.cartbody { min-width: 0; flex: 1; }
+.cartbody .name { font-size: 14.5px; font-weight: 600; }
+.gone { color: #e4845a; }
+.offerfield { display: block; color: var(--muted); font-size: 13px; margin-top: 8px; }
+.offerfield input, .offerfield textarea {
+ display: block; width: 100%; margin-top: 4px; padding: 10px 12px;
+ border: 1px solid var(--line); border-radius: 10px;
+ background: var(--panel); color: var(--text); font: inherit; font-size: 16px;
+}
+.linkbutton { border: 0; background: none; padding: 6px 0 0; color: var(--accent); font: inherit; font-size: 13.5px; cursor: pointer; }
+
+/* The catalogue finder, shared by listing a card and asking for one. */
+.results { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 0; }
+.result {
+ text-align: left; padding: 11px 13px; border: 1px solid var(--line); border-radius: 10px;
+ background: var(--panel); color: var(--text); font: inherit; font-size: 14.5px; cursor: pointer;
+}
+.chosen { font-size: 16px; font-weight: 600; margin: 12px 0 0; }
+.uploads { display: flex; gap: 8px; margin: 10px 0 0; }
+.filebutton {
+ flex: 1; margin: 0; padding: 11px 12px; border: 1px dashed var(--line); border-radius: 10px;
+ color: var(--text); font-size: 13.5px; text-align: center; cursor: pointer;
+}
+.filebutton input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+.submission { padding: 12px 0; border-bottom: 1px solid var(--line); }
+.submission .name { font-size: 14.5px; font-weight: 600; }
+.submission .state { font-size: 13px; color: var(--accent); }
