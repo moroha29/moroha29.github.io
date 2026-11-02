@@ -621,11 +621,16 @@ function accountSection(data){
 $('automationSettings').onclick=()=>task(openMarketplaceSettings);
 async function openMarketplaceSettings(){
  const session=token;const data=await api('marketplace',{action:'settings'});
- // Owner-only, so a seller account simply gets no panel rather than a broken dialog.
- let account=null;try{account=await api('account',{action:'status'});}catch{}
+ // Owner-only, so a seller session gets no panel rather than a broken dialog.
+ // Any other refusal is the server saying it cannot offer this, and swallowing
+ // it left a manager that looked like it never had the setting at all, which
+ // is the one failure here the owner cannot see from the page.
+ let account=null,accountRefusal='';
+ try{account=await api('account',{action:'status'});}catch(e){accountRefusal=/owner-only/i.test(e.message||'')?'':(e.message||'Could not load the Telegram account settings.');}
  if(!token||token!==session)return;marketShell('Automation & marketplaces');
  marketDialog.append(el('p','Telegram: automatic on publication. Carousell: manually linked and tracked. TCGplayer: not connected.','hint'));
  if(account)marketDialog.append(accountSection(account));
+ else if(accountRefusal){const refused=el('section',undefined,'marketSection');refused.append(el('h3','Post listings as your own Telegram account'),el('p',accountRefusal,'rowerror'));marketDialog.append(refused);}
  const section=el('section',undefined,'marketSection');section.append(el('h3','Your posting template'));
  section.append(el('p','Appended below the card name, grade, asking price and private-offer link. Applies to future posts and later listing updates.','hint'));
  const templateInput=marketField(section,'Posting template',data.template,true);templateInput.maxLength=1800;
