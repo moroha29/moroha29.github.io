@@ -2,7 +2,7 @@ name: Publish private inventory page
 on:
   push:
     branches: [main]
-    paths: ['web-portfolio/public/card_manager/**', '.github/workflows/deploy-inventory.yml', 'tests/inventory-browser.cjs']
+    paths: ['web-portfolio/public/card_manager/**', 'web-portfolio/public/card_shop/**', '.github/workflows/deploy-inventory.yml', 'tests/inventory-browser.cjs', 'tests/shop-browser.cjs']
   workflow_dispatch:
 permissions:
   contents: read
@@ -24,8 +24,10 @@ jobs:
         with: {ref: gh-pages, path: published}
       - run: |
           node --check source/web-portfolio/public/card_manager/app.js
-          mkdir -p published/card_manager
+          node --check source/web-portfolio/public/card_shop/app.js
+          mkdir -p published/card_manager published/card_shop
           cp source/web-portfolio/public/card_manager/* published/card_manager/
+          cp source/web-portfolio/public/card_shop/* published/card_shop/
       - name: Test inventory user flow
         run: |
           npm install --prefix "$RUNNER_TEMP/inventory-tests" playwright@1.64.1 --no-audit --no-fund
@@ -36,6 +38,10 @@ jobs:
           fi
           NODE_PATH="$RUNNER_TEMP/inventory-tests/node_modules" INVENTORY_SCREENSHOT="$RUNNER_TEMP/inventory-preview.png" node source/tests/inventory-browser.cjs
           NODE_PATH="$RUNNER_TEMP/inventory-tests/node_modules" INVENTORY_WIDTH=390 INVENTORY_SCREENSHOT="$RUNNER_TEMP/inventory-phone.png" node source/tests/inventory-browser.cjs
+      - name: Test Mini App shop flow
+        run: |
+          NODE_PATH="$RUNNER_TEMP/inventory-tests/node_modules" SHOP_SCREENSHOT="$RUNNER_TEMP/shop-phone.png" node source/tests/shop-browser.cjs
+          NODE_PATH="$RUNNER_TEMP/inventory-tests/node_modules" SHOP_WIDTH=1440 node source/tests/shop-browser.cjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with: {path: published}

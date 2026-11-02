@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://telegram.org; style-src 'self' 'unsafe-inline'; img-src blob: data:; connect-src https://dn0h8mmk7hu8r.cloudfront.net; base-uri 'none'; form-action 'none'"><link rel="preconnect" href="https://dn0h8mmk7hu8r.cloudfront.net" crossorigin><title>Card shop</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<section id="gate" class="gate"><h1>Card shop</h1><p id="gateText">Opening the shop…</p></section>
+
+<main id="shop" hidden>
+<div class="searchbar"><input id="search" type="search" placeholder="Search every card" aria-label="Search listings" autocomplete="off" enterkeyhint="search"><button id="clear" type="button" aria-label="Clear search" hidden>✕</button></div>
+<p id="count" class="count"></p>
+<div id="grid" class="grid" role="list"></div>
+<p id="empty" class="empty" hidden>Nothing matches that. Try a card name, a set number or a listing number.</p>
+<button id="more" class="more" type="button" hidden>Show more</button>
+</main>
+
+<section id="detail" class="detail" hidden>
+<div class="carousel"><img id="photo" alt="" hidden><div id="noPhoto" class="nophoto" hidden>No photos yet</div>
+<button id="previousPhoto" class="arrow left" type="button" aria-label="Previous photo" hidden>‹</button>
+<button id="nextPhoto" class="arrow right" type="button" aria-label="Next photo" hidden>›</button>
+<p id="photoLabel" class="photolabel"></p></div>
+<h2 id="detailName"></h2>
+<p id="detailMeta" class="meta"></p>
+<p id="detailPrice" class="price"></p>
+<p id="detailIncluded" class="included" hidden></p>
+<a id="openInBot" class="primary" href="#" hidden>Ask about this card</a>
+<button id="back" class="secondary" type="button">Back to the shop</button>
+</section>
+
+<p id="status" class="status" role="status" aria-live="polite" hidden></p>
+<script src="https://telegram.org/js/telegram-web-app.js"></script><script src="config.js"></script><script src="app.js" defer></script></body></html>
