@@ -10,6 +10,9 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
  // No account is connected, which is the state a fresh install is in and the
  // one that shows the setup steps rather than a signed-in badge.
  const userAccount={state:'unconfigured'};
+ // The server can refuse this route outright, and the manager used to hide the
+ // whole panel when it did. accountRefusal makes that answer reproducible.
+ let accountRefusal=null;
  let centralRequests=0;
  const centralInventory={
   stock:[
@@ -49,6 +52,7 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
    // automation dialog opens, so leaving it unhandled failed every publish of
    // this page from the day that feature shipped.
    if(action==='account'){
+    if(accountRefusal){await route.fulfill({headers,status:accountRefusal.status,contentType:'application/json',body:JSON.stringify({error:accountRefusal.error})});return;}
     if(body.action==='status')result={account:userAccount,sender:marketSettings.sender||'bot'};
     if(body.action==='sender'){marketSettings.sender=body.sender;result={account:userAccount,sender:body.sender};}
    }
@@ -275,10 +279,26 @@ if(process.env.INVENTORY_SCREENSHOT)await page.screenshot({path:process.env.INVE
  await page.locator('#expenses button').filter({hasText:'Delete'}).click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelector('#status').textContent==='Expense removed.');assert.equal(expenses.length,0);
  console.log('PASS: trade preview, exact cost allocation, locked carried cost, expense validation/edit/delete');
  await page.locator('#automationSettings').click();await page.getByRole('heading',{name:'Automation & marketplaces',exact:true}).waitFor();
+ await page.getByRole('heading',{name:'Post listings as your own Telegram account',exact:true}).waitFor();
+ assert(await page.getByRole('button',{name:'Save details',exact:true}).isVisible(),'no way to link a Telegram account');
  await page.getByLabel('Posting template',{exact:true}).fill('Offers welcome. Tracked mail +$3.');await page.getByRole('button',{name:'Save posting template',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#status').textContent==='Posting template saved.');
  await page.getByLabel('Group name',{exact:true}).fill('Pokémon marketplace');await page.getByLabel('Group link or chat ID',{exact:true}).fill('-100987654321');await page.getByLabel('Topic ID (0 for no topic)',{exact:true}).fill('7');await page.getByRole('button',{name:'Add & enable',exact:true}).click();await page.getByRole('button',{name:'Disable',exact:true}).waitFor();assert.equal(marketSettings.destinations[0].topicId,7);
  await page.getByRole('button',{name:'Disable',exact:true}).click();await page.getByRole('button',{name:'Enable',exact:true}).waitFor();assert.equal(marketSettings.destinations[0].enabled,false);
  assert((await page.locator('#marketplaceDialog').textContent()).includes('TCGplayer · Not connected'));
+ // A server that cannot offer the account has to say so. Hiding the panel made
+ // that indistinguishable from a manager with no such setting, which is the
+ // state the owner reported as "there is no button to link my Telegram".
+ accountRefusal={status:503,error:'Posting as your own Telegram account is not available on this server.'};
+ await page.locator('#marketplaceDialog').getByRole('button',{name:'Close',exact:true}).click();await page.locator('#automationSettings').click();
+ await page.getByText('Posting as your own Telegram account is not available on this server.',{exact:true}).waitFor();
+ // A seller is simply not offered it, so that one refusal stays silent.
+ accountRefusal={status:403,error:'This feature is owner-only'};
+ await page.locator('#marketplaceDialog').getByRole('button',{name:'Close',exact:true}).click();await page.locator('#automationSettings').click();
+ await page.getByRole('heading',{name:'Your posting template',exact:true}).waitFor();
+ assert(!(await page.locator('#marketplaceDialog').textContent()).includes('own Telegram account'),'a seller was shown the owner-only panel');
+ accountRefusal=null;
+ await page.locator('#marketplaceDialog').getByRole('button',{name:'Close',exact:true}).click();await page.locator('#automationSettings').click();
+ await page.getByRole('heading',{name:'Post listings as your own Telegram account',exact:true}).waitFor();
  if(process.env.MARKETPLACE_SCREENSHOT)await page.screenshot({path:process.env.MARKETPLACE_SCREENSHOT});
  await page.locator('#marketplaceDialog').getByRole('button',{name:'Close',exact:true}).click();await page.locator('[data-tab=stock]').click();await page.locator('.marketplaceDetails').first().click();await page.getByRole('heading',{name:'Carousell listing',exact:true}).waitFor();
  await page.locator('#marketplaceDialog').getByLabel('Carousell listing URL',{exact:true}).fill('https://www.carousell.sg/p/test-card-123/');await page.getByLabel('Carousell listing title',{exact:true}).fill('Test listing');await page.getByLabel('Listing details / notes',{exact:true}).fill('Meetup preferred');await page.getByLabel('Carousell status',{exact:true}).selectOption('listed');await page.getByRole('button',{name:'Save Carousell details',exact:true}).click();await page.getByRole('link',{name:'Open Carousell listing ↗'}).waitFor();assert.equal(Object.values(marketLinks)[0].status,'listed');assert.equal(await page.getByLabel('Listing details / notes',{exact:true}).inputValue(),'Meetup preferred');
