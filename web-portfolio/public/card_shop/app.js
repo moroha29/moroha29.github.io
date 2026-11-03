@@ -113,10 +113,18 @@ function card(item) {
  return node;
 }
 
-function render() {
+// `from` is the first index that is new on this render. Everything before it
+// was already on the screen and must not animate again: a second page of
+// results should arrive under what you are reading, not restart it.
+function render(from) {
  const grid = $('grid');
  grid.textContent = '';
- for (const item of items) grid.appendChild(card(item));
+ items.forEach((item, index) => {
+  const node = card(item);
+  if (index < (from || 0)) node.classList.add('settled');
+  else node.style.setProperty('--i', String(Math.min(index - (from || 0), 11)));
+  grid.appendChild(node);
+ });
  $('empty').hidden = items.length > 0 || loading;
  $('more').hidden = items.length >= total;
  $('count').textContent = total ? total + (total === 1 ? ' card available' : ' cards available') : '';
@@ -133,12 +141,13 @@ async function load(append) {
   // make the next request skip a listing.
   offset = (append ? offset : 0) + (page.items || []).length;
   total = page.total || 0;
+  const already = append ? items.length : 0;
   items = append ? items.concat(page.items || []) : (page.items || []);
   // Before rendering, not in the finally below: render() asks whether a page
   // is still loading to decide between an empty grid and "nothing matches",
   // and a finally runs after it.
   loading = false;
-  render();
+  render(already);
   status('');
  } catch (failure) {
   if (mine !== searchSeq) return;
@@ -152,12 +161,29 @@ function showPhoto() {
  if (!open) return;
  const slots = (open.photos || []).filter(p => p);
  const img = $('photo');
+ const dots = $('dots');
  $('noPhoto').hidden = slots.length > 0;
  img.hidden = slots.length === 0;
  $('previousPhoto').hidden = $('nextPhoto').hidden = slots.length < 2;
- $('photoLabel').textContent = slots.length > 1 ? photoLabel(slot) + ' · ' + (slot + 1) + '/' + slots.length : '';
- if (!slots.length) return;
+ if (!slots.length) {
+  $('photoLabel').textContent = '';
+  dots.textContent = '';
+  return;
+ }
+ // Wrapped first, so the label and the dots describe the photo that is
+ // actually about to be shown rather than the arrow that was pressed.
  slot = (slot + slots.length) % slots.length;
+ $('photoLabel').textContent = slots.length > 1 ? photoLabel(slot) + ' · ' + (slot + 1) + '/' + slots.length : '';
+ dots.textContent = '';
+ if (slots.length > 1) {
+  for (let i = 0; i < slots.length; i++) {
+   const dot = el('button', undefined, i === slot ? 'dot on' : 'dot');
+   dot.type = 'button';
+   dot.setAttribute('aria-label', 'Photo ' + (i + 1));
+   dot.addEventListener('click', () => { slot = i; showPhoto(); });
+   dots.appendChild(dot);
+  }
+ }
  img.classList.remove('ready');
  img.onload = () => img.classList.add('ready');
  img.src = photoSrc(slots[slot], 'card');
@@ -245,8 +271,14 @@ function renderCart() {
  $('checkout').disabled = !cart.ready;
  $('checkout').textContent = cart.ready ? 'Send offers' : 'Remove unavailable cards first';
  const badge = $('cartCount');
+ const was = badge.textContent;
  badge.hidden = count === 0;
  badge.textContent = String(count);
+ if (count && was !== String(count)) {
+  badge.classList.remove('pop');
+  void badge.offsetWidth; // restart the animation rather than skip it
+  badge.classList.add('pop');
+ }
 }
 
 async function cartAction(path, body) {

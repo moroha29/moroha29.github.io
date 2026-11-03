@@ -24,7 +24,8 @@
  --line: color-mix(in srgb, var(--muted) 26%, transparent);
  --shadow: 0 1px 2px rgb(0 0 0 / .12), 0 8px 24px -12px rgb(0 0 0 / .35);
  --radius: 16px;
- --tabs: 54px;
+ --bar: 62px;
+ --rise: cubic-bezier(.22, .8, .3, 1);
 }
 * { box-sizing: border-box; }
 /* Buttons and links below are given a display of their own, which would
@@ -32,7 +33,7 @@
 [hidden] { display: none !important; }
 body {
  margin: 0;
- padding: 0 16px calc(28px + env(safe-area-inset-bottom)) 16px;
+ padding: 0 16px calc(var(--bar) + 24px + env(safe-area-inset-bottom)) 16px;
  background: var(--bg);
  color: var(--text);
  font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -50,33 +51,51 @@ button { font: inherit; cursor: pointer; }
  background: var(--sweep); -webkit-background-clip: text; background-clip: text;
 }
 
-/* Tabs. They sit above the searchbar, which is sticky too, so the searchbar's
-   offset below is measured from the same height. */
+/* The tab bar sits at the bottom, where a thumb already is. It is fixed
+   rather than sticky so it stays put while a long grid scrolls under it, and
+   the body reserves --bar of room so nothing ends up behind it. */
 .tabs {
- position: sticky; top: 0; z-index: 3;
- display: flex; gap: 4px; height: var(--tabs); align-items: center;
- margin: 0 -16px; padding: 0 12px;
+ position: fixed; left: 0; right: 0; bottom: 0; z-index: 4;
+ display: flex; gap: 2px;
+ padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
  background: color-mix(in srgb, var(--bg) 86%, transparent);
- backdrop-filter: saturate(1.6) blur(14px);
- -webkit-backdrop-filter: saturate(1.6) blur(14px);
- border-bottom: 1px solid var(--line);
+ backdrop-filter: saturate(1.7) blur(18px);
+ -webkit-backdrop-filter: saturate(1.7) blur(18px);
+ border-top: 1px solid var(--line);
 }
 .tabs button {
- flex: 1; min-width: 0; padding: 9px 4px; border: 0; border-radius: 11px;
- background: transparent; color: var(--muted); font-size: 14.5px; font-weight: 500;
- transition: color .15s, background .15s;
+ position: relative; flex: 1; min-width: 0;
+ display: flex; flex-direction: column; align-items: center; gap: 3px;
+ padding: 7px 2px 5px; border: 0; border-radius: 14px;
+ background: transparent; color: var(--muted);
+ font-size: 10.5px; font-weight: 600; letter-spacing: .01em;
+ transition: color .2s ease;
 }
-.tabs button.active { background: var(--sweep); color: #fff; font-weight: 650; box-shadow: 0 4px 14px -6px var(--brand); }
+/* A soft wash of the shop's gradient behind the active tab, rather than a
+   solid pill: at this size a filled block swallows the icon. */
+.tabs button::before {
+ content: ''; position: absolute; top: 3px; left: 50%; margin-left: -23px;
+ width: 46px; height: 30px;
+ border-radius: 999px; background: var(--sweep);
+ opacity: 0; transform: scale(.7);
+ transition: opacity .2s ease, transform .24s var(--rise);
+}
+.tabs button.active { color: color-mix(in srgb, var(--brand) 86%, var(--text)); }
+.tabs button.active::before { opacity: .18; transform: scale(1); }
+.tabs button svg, .tabs button span:not(.badge) { position: relative; }
+.tabs button svg { transition: transform .24s var(--rise); }
+.tabs button.active svg { transform: translateY(-1px) scale(1.08); }
+.tabs button:active svg { transform: scale(.9); }
 .badge {
- display: inline-block; min-width: 19px; padding: 0 5px; margin-left: 4px;
- border-radius: 999px; background: #ff5f6d; color: #fff;
- font-size: 11px; font-weight: 700; line-height: 19px; text-align: center;
+ position: absolute; top: 2px; left: 54%;
+ min-width: 18px; padding: 0 5px;
+ border-radius: 999px; background: #ff4757; color: #fff;
+ font-size: 10.5px; font-weight: 700; line-height: 18px; text-align: center;
 }
-.tabs button.active .badge { background: rgb(255 255 255 / .28); }
-.panel { padding-bottom: 80px; }
+.panel { padding-bottom: 8px; }
 
 .searchbar {
- position: sticky; top: var(--tabs); z-index: 2;
+ position: sticky; top: 0; z-index: 2;
  display: flex; gap: 8px; align-items: center; padding: 12px 0 10px;
  background: var(--bg);
 }
@@ -95,13 +114,22 @@ button { font: inherit; cursor: pointer; }
 
 /* Filters. One chip per group is active; the first in each group is the group
    switched off, which is why it starts active. */
-.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+/* One row that scrolls, not a block that grows: with two groups, wrapping
+   pushed the first card below the fold on a small phone. */
+.chips {
+ display: flex; gap: 7px; margin: 0 -16px 8px; padding: 0 16px 2px;
+ overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+ scroll-snap-type: x proximity;
+}
+.chips::-webkit-scrollbar { display: none; }
 .chip {
- padding: 7px 13px; border: 1px solid var(--line); border-radius: 999px;
- background: transparent; color: var(--muted); font-size: 13.5px;
- transition: background .15s, color .15s, border-color .15s;
+ flex: none; scroll-snap-align: start;
+ padding: 7px 14px; border: 1px solid var(--line); border-radius: 999px;
+ background: transparent; color: var(--muted); font-size: 13.5px; white-space: nowrap;
+ transition: background .18s, color .18s, border-color .18s, transform .12s;
 }
 .chip.active { background: var(--sweep); color: #fff; border-color: transparent; font-weight: 600; }
+.chip:active { transform: scale(.94); }
 details { margin: 2px 0 12px; }
 summary { color: var(--muted); font-size: 13.5px; padding: 6px 0; cursor: pointer; }
 summary::marker { color: var(--brand); }
@@ -167,6 +195,28 @@ label textarea { resize: vertical; }
 .card .price { font-size: 17px; margin-top: 5px; }
 .price { font-weight: 750; letter-spacing: -.02em; color: color-mix(in srgb, var(--brand) 80%, var(--text)); }
 .detail .price { font-size: 27px; margin: 10px 0 2px; }
+/* The offer and the button stay within reach while the rest of the card
+   scrolls past, which is the one action this screen exists for. */
+.actionbar {
+ position: sticky; z-index: 3;
+ bottom: calc(var(--bar) + 10px + env(safe-area-inset-bottom));
+ margin: 20px -4px 0; padding: 12px 14px 14px;
+ border: 1px solid var(--line); border-radius: 18px;
+ background: color-mix(in srgb, var(--panel) 92%, var(--bg));
+ backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+ box-shadow: var(--shadow);
+}
+.actionbar .offerfield { margin-top: 0; }
+.actionbar .primary { margin-top: 10px; }
+
+/* Carousel dots: how many photos there are, without reading the line. */
+.dots { position: absolute; left: 0; right: 0; bottom: 12px; display: flex; justify-content: center; gap: 6px; }
+.dot {
+ width: 7px; height: 7px; padding: 0; border: 0; border-radius: 999px;
+ background: rgb(255 255 255 / .5); box-shadow: 0 1px 3px rgb(0 0 0 / .4);
+ transition: width .24s var(--rise), background .24s ease;
+}
+.dot.on { width: 20px; background: #fff; }
 
 .empty { color: var(--muted); padding: 40px 8px; text-align: center; line-height: 1.5; }
 .more, .primary, .secondary {
@@ -179,7 +229,7 @@ label textarea { resize: vertical; }
 .primary { background: var(--sweep); color: #fff; text-decoration: none; box-shadow: 0 8px 22px -12px var(--brand); }
 .primary:disabled, .secondary:disabled { opacity: .5; box-shadow: none; }
 
-.detail { padding-bottom: 80px; }
+.detail { padding-bottom: 8px; }
 .carousel { position: relative; margin: 18px 0 10px; }
 .carousel img {
  width: 100%; border-radius: var(--radius); display: block;
@@ -245,7 +295,7 @@ label textarea { resize: vertical; }
 }
 
 .status {
- position: fixed; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom));
+ position: fixed; left: 16px; right: 16px; bottom: calc(var(--bar) + 14px + env(safe-area-inset-bottom));
  z-index: 5; margin: 0; padding: 12px 16px; border-radius: 14px; text-align: center;
  font-size: 14px; font-weight: 500;
  background: color-mix(in srgb, var(--panel) 92%, var(--text) 8%);
@@ -253,3 +303,37 @@ label textarea { resize: vertical; }
  box-shadow: var(--shadow);
 }
 .status.error { background: #c0392b; color: #fff; }
+
+/* Motion. Short, and all of it goes away for anyone who has asked their
+   phone for less of it. */
+@keyframes rise {
+ from { opacity: 0; transform: translateY(12px) scale(.98); }
+ to { opacity: 1; transform: none; }
+}
+@keyframes fadeUp {
+ from { opacity: 0; transform: translateY(7px); }
+ to { opacity: 1; transform: none; }
+}
+@keyframes pop {
+ 0% { transform: scale(1); }
+ 45% { transform: scale(1.4); }
+ 100% { transform: scale(1); }
+}
+/* Cards arrive in order, about a frame apart, capped so a full page does not
+   end in a visible queue. `backwards` holds the first frame during the delay,
+   or they would flash in at full opacity first. */
+.card {
+ animation: rise .3s var(--rise) backwards;
+ animation-delay: calc(var(--i, 0) * 26ms);
+}
+.card.settled { animation: none; }
+.panel:not([hidden]) { animation: fadeUp .24s ease-out; }
+.result, .cartrow, .submission { animation: fadeUp .22s ease-out backwards; }
+.badge.pop { animation: pop .36s cubic-bezier(.34, 1.56, .64, 1); }
+@media (prefers-reduced-motion: reduce) {
+ *, *::before, *::after {
+  animation-duration: .001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: .001ms !important;
+ }
+}
