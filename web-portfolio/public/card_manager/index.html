@@ -31,6 +31,17 @@
 <p class="hint">Use {card}, {condition}, {price}, {link}. Use {bot_link} anywhere.</p>
 <label for="templateOutro">Closing message (optional)</label><textarea id="templateOutro" rows="2"></textarea>
 <button id="saveTemplate">Save template</button><p class="hint">Applies to all batch previews. Posted batches will show when they need updating.</p></details>
+<section id="collectionsSection">
+<h2 class="sectionHeading">Collections</h2>
+<p class="hint">A collection is one post that keeps itself current. Write one search per line; every available card matching any line is in it, and newly listed cards join on their own.</p>
+<div id="collections" class="batches"></div>
+<details id="newCollection"><summary>New collection</summary>
+<label for="collectionName">Name</label><input id="collectionName" maxlength="150" placeholder="e.g. All shiny and AR">
+<label for="collectionRules">One search per line</label><textarea id="collectionRules" rows="3" placeholder="ar&#10;shiny"></textarea>
+<p class="hint">Each line is a card search, so AR means the rarity and not the letters inside Charizard. Two lines mean either; terms on one line mean both.</p>
+<button id="createCollection">Create collection</button></details>
+</section>
+<h2 class="sectionHeading">Batches</h2>
 <div id="batches" class="batches"></div></section>
 </section>
 <div id="status" role="status" aria-live="polite"></div>
