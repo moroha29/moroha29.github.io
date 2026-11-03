@@ -1,166 +1,339 @@
 /* Telegram supplies the palette as --tg-theme-* on the root element, so the
    shop follows whatever theme the buyer already reads Telegram in. The
-   fallbacks are what a plain browser or an old client gets. */
+   fallbacks are what a plain browser or an old client gets.
+
+   Everything else is derived from those four colours with color-mix, rather
+   than hard-coded, so one stylesheet is right in a light theme and a dark one
+   without a second set of rules to keep in step. */
 :root {
- --bg: var(--tg-theme-bg-color, #17212b);
- --panel: var(--tg-theme-secondary-bg-color, #232e3c);
- --text: var(--tg-theme-text-color, #f5f5f5);
+ --bg: var(--tg-theme-bg-color, #15202b);
+ --panel: var(--tg-theme-secondary-bg-color, #1e2b38);
+ --text: var(--tg-theme-text-color, #f5f7fa);
  --muted: var(--tg-theme-hint-color, #8d9aa8);
- --accent: var(--tg-theme-button-color, #2ea6ff);
+ --accent: var(--tg-theme-button-color, #3b8cff);
  --accentText: var(--tg-theme-button-text-color, #ffffff);
- --line: color-mix(in srgb, var(--muted) 30%, transparent);
- --tabs: 52px;
+
+ /* The shop's own colour, mixed toward the client's button colour so it
+    still belongs to the buyer's theme rather than overriding it. */
+ --brand: color-mix(in srgb, var(--accent) 72%, #7c5cff);
+ --brand2: color-mix(in srgb, var(--accent) 55%, #22d3ee);
+ --sweep: linear-gradient(135deg, var(--brand), var(--brand2));
+
+ --surface: color-mix(in srgb, var(--panel) 88%, var(--text) 4%);
+ --raised: color-mix(in srgb, var(--panel) 70%, var(--bg) 30%);
+ --line: color-mix(in srgb, var(--muted) 26%, transparent);
+ --shadow: 0 1px 2px rgb(0 0 0 / .12), 0 8px 24px -12px rgb(0 0 0 / .35);
+ --radius: 16px;
+ --bar: 62px;
+ --rise: cubic-bezier(.22, .8, .3, 1);
 }
 * { box-sizing: border-box; }
-/* The rules below give buttons and links a display of their own, which would
+/* Buttons and links below are given a display of their own, which would
    otherwise beat the hidden attribute and leave dead controls on the screen. */
 [hidden] { display: none !important; }
 body {
  margin: 0;
- padding: 0 16px calc(24px + env(safe-area-inset-bottom)) 16px;
+ padding: 0 16px calc(var(--bar) + 24px + env(safe-area-inset-bottom)) 16px;
  background: var(--bg);
  color: var(--text);
  font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
  -webkit-text-size-adjust: 100%;
+ -webkit-tap-highlight-color: transparent;
 }
-h1 { font-size: 22px; margin: 24px 0 8px; }
-h2 { font-size: 19px; margin: 16px 0 4px; }
+h1 { font-size: 23px; letter-spacing: -.02em; margin: 24px 0 8px; }
+h2 { font-size: 19px; letter-spacing: -.01em; margin: 18px 0 4px; }
 p { margin: 4px 0; }
+button { font: inherit; cursor: pointer; }
 
-.gate { text-align: center; padding: 64px 8px; color: var(--muted); }
-.gate h1 { color: var(--text); }
+.gate { text-align: center; padding: 72px 8px; color: var(--muted); }
+.gate h1 {
+ font-size: 28px; color: transparent;
+ background: var(--sweep); -webkit-background-clip: text; background-clip: text;
+}
 
-.searchbar { position: sticky; top: 0; z-index: 2; display: flex; gap: 8px; align-items: center; padding: 12px 0; background: var(--bg); }
+/* The tab bar sits at the bottom, where a thumb already is. It is fixed
+   rather than sticky so it stays put while a long grid scrolls under it, and
+   the body reserves --bar of room so nothing ends up behind it. */
+.tabs {
+ position: fixed; left: 0; right: 0; bottom: 0; z-index: 4;
+ display: flex; gap: 2px;
+ padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+ background: color-mix(in srgb, var(--bg) 86%, transparent);
+ backdrop-filter: saturate(1.7) blur(18px);
+ -webkit-backdrop-filter: saturate(1.7) blur(18px);
+ border-top: 1px solid var(--line);
+}
+.tabs button {
+ position: relative; flex: 1; min-width: 0;
+ display: flex; flex-direction: column; align-items: center; gap: 3px;
+ padding: 7px 2px 5px; border: 0; border-radius: 14px;
+ background: transparent; color: var(--muted);
+ font-size: 10.5px; font-weight: 600; letter-spacing: .01em;
+ transition: color .2s ease;
+}
+/* A soft wash of the shop's gradient behind the active tab, rather than a
+   solid pill: at this size a filled block swallows the icon. */
+.tabs button::before {
+ content: ''; position: absolute; top: 3px; left: 50%; margin-left: -23px;
+ width: 46px; height: 30px;
+ border-radius: 999px; background: var(--sweep);
+ opacity: 0; transform: scale(.7);
+ transition: opacity .2s ease, transform .24s var(--rise);
+}
+.tabs button.active { color: color-mix(in srgb, var(--brand) 86%, var(--text)); }
+.tabs button.active::before { opacity: .18; transform: scale(1); }
+.tabs button svg, .tabs button span:not(.badge) { position: relative; }
+.tabs button svg { transition: transform .24s var(--rise); }
+.tabs button.active svg { transform: translateY(-1px) scale(1.08); }
+.tabs button:active svg { transform: scale(.9); }
+.badge {
+ position: absolute; top: 2px; left: 54%;
+ min-width: 18px; padding: 0 5px;
+ border-radius: 999px; background: #ff4757; color: #fff;
+ font-size: 10.5px; font-weight: 700; line-height: 18px; text-align: center;
+}
+.panel { padding-bottom: 8px; }
+
+.searchbar {
+ position: sticky; top: 0; z-index: 2;
+ display: flex; gap: 8px; align-items: center; padding: 12px 0 10px;
+ background: var(--bg);
+}
 .searchbar input {
- flex: 1; min-width: 0; padding: 11px 14px; border-radius: 10px;
- border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 16px;
+ flex: 1; min-width: 0; padding: 12px 15px; border-radius: 13px;
+ border: 1px solid var(--line); background: var(--surface); color: var(--text); font-size: 16px;
+ transition: border-color .15s, box-shadow .15s;
+}
+.searchbar input:focus {
+ outline: 0; border-color: color-mix(in srgb, var(--brand) 60%, transparent);
+ box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 18%, transparent);
 }
 .searchbar input::placeholder { color: var(--muted); }
-.searchbar button { border: 0; background: var(--panel); color: var(--muted); border-radius: 10px; padding: 11px 13px; font-size: 15px; }
-.count { color: var(--muted); font-size: 13px; margin: 0 0 10px; }
+.searchbar button { border: 0; background: var(--surface); color: var(--muted); border-radius: 13px; padding: 12px 14px; font-size: 15px; }
+.count { color: var(--muted); font-size: 12.5px; letter-spacing: .02em; margin: 0 0 12px; }
 
-/* Two columns on a phone, more as the screen allows. A card is a button, so
-   the whole tile is the tap target rather than the name alone. */
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
-.card {
- display: flex; flex-direction: column; gap: 2px; text-align: left;
- padding: 8px; border: 1px solid var(--line); border-radius: 14px;
- background: var(--panel); color: var(--text); font: inherit; cursor: pointer;
+/* Filters. One chip per group is active; the first in each group is the group
+   switched off, which is why it starts active. */
+/* One row that scrolls, not a block that grows: with two groups, wrapping
+   pushed the first card below the fold on a small phone. */
+.chips {
+ display: flex; gap: 7px; margin: 0 -16px 8px; padding: 0 16px 2px;
+ overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+ scroll-snap-type: x proximity;
 }
-.card:active { transform: scale(0.985); }
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+ flex: none; scroll-snap-align: start;
+ padding: 7px 14px; border: 1px solid var(--line); border-radius: 999px;
+ background: transparent; color: var(--muted); font-size: 13.5px; white-space: nowrap;
+ transition: background .18s, color .18s, border-color .18s, transform .12s;
+}
+.chip.active { background: var(--sweep); color: #fff; border-color: transparent; font-weight: 600; }
+.chip:active { transform: scale(.94); }
+details { margin: 2px 0 12px; }
+summary { color: var(--muted); font-size: 13.5px; padding: 6px 0; cursor: pointer; }
+summary::marker { color: var(--brand); }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 8px 0 2px; }
+label { display: block; color: var(--muted); font-size: 12.5px; font-weight: 500; margin: 10px 0 0; }
+label input, label select, label textarea, .offerfield input, .offerfield textarea {
+ display: block; width: 100%; margin-top: 5px; padding: 11px 13px;
+ border: 1px solid var(--line); border-radius: 12px;
+ background: var(--surface); color: var(--text); font: inherit; font-size: 16px;
+ transition: border-color .15s, box-shadow .15s;
+}
+label input:focus, label select:focus, label textarea:focus, .offerfield input:focus, .offerfield textarea:focus {
+ outline: 0; border-color: color-mix(in srgb, var(--brand) 60%, transparent);
+ box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 18%, transparent);
+}
+label textarea { resize: vertical; }
+.hint { color: var(--muted); font-size: 12.5px; line-height: 1.4; }
+
+/* The grid. Two columns on a phone, more as the screen allows; a card is a
+   button, so the whole tile is the tap target rather than the name alone. */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)); gap: 14px; }
+.card {
+ display: flex; flex-direction: column; gap: 1px; text-align: left;
+ padding: 8px 8px 12px; border: 1px solid var(--line); border-radius: var(--radius);
+ background: var(--surface); color: var(--text);
+ box-shadow: var(--shadow);
+ transition: transform .14s ease, box-shadow .14s ease, border-color .14s ease;
+}
+.card:active { transform: scale(.975); }
+@media (hover: hover) {
+ .card:hover { border-color: color-mix(in srgb, var(--brand) 45%, transparent); box-shadow: 0 2px 4px rgb(0 0 0 / .14), 0 16px 32px -18px var(--brand); }
+}
 .frame {
- aspect-ratio: 5 / 7; width: 100%; overflow: hidden; border-radius: 9px;
- background: color-mix(in srgb, var(--muted) 18%, transparent);
+ position: relative;
+ aspect-ratio: 5 / 7; width: 100%; overflow: hidden; border-radius: 11px;
+ background: var(--raised);
  display: flex; align-items: center; justify-content: center;
  color: var(--muted); font-size: 12px;
 }
-.frame img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0; transition: opacity .18s ease-out; }
-.frame img.ready { opacity: 1; }
-.card .name { font-size: 13.5px; line-height: 1.3; margin-top: 6px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.card .meta, .meta { color: var(--muted); font-size: 12px; }
-.card .price, .price { font-weight: 600; }
-.price { font-size: 20px; margin: 8px 0; }
-
-.empty { color: var(--muted); padding: 32px 0; text-align: center; }
-.more, .primary, .secondary {
- display: block; width: 100%; margin: 16px 0 0; padding: 13px 16px;
- border: 0; border-radius: 12px; font: inherit; font-weight: 600; text-align: center; cursor: pointer;
+/* A shimmer under the photo, so a loading tile reads as "coming" rather than
+   as an empty box. It stops the moment the image marks itself ready. */
+.frame::after {
+ content: ''; position: absolute; inset: 0;
+ background: linear-gradient(100deg, transparent 20%, color-mix(in srgb, var(--text) 7%, transparent) 50%, transparent 80%);
+ background-size: 220% 100%;
+ animation: sweep 1.3s linear infinite;
 }
-.more, .secondary { background: var(--panel); color: var(--text); }
-.primary { background: var(--accent); color: var(--accentText); text-decoration: none; }
+.frame.empty::after, .frame:has(img.ready)::after { content: none; }
+@keyframes sweep { from { background-position: 180% 0; } to { background-position: -80% 0; } }
+@media (prefers-reduced-motion: reduce) { .frame::after { animation: none; } }
+.frame img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0; transition: opacity .25s ease-out; }
+.frame img.ready { opacity: 1; }
+/* The grade, read off the photo rather than out of the line beneath it. */
+.pill {
+ position: absolute; left: 7px; top: 7px; z-index: 1;
+ padding: 3px 8px; border-radius: 999px;
+ background: rgb(10 14 20 / .62); color: #fff;
+ backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+ font-size: 10.5px; font-weight: 650; letter-spacing: .03em; text-transform: uppercase;
+}
+.card .name { font-size: 13.5px; font-weight: 550; line-height: 1.3; margin-top: 9px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card .meta, .meta { color: var(--muted); font-size: 11.5px; }
+.card .price { font-size: 17px; margin-top: 5px; }
+.price { font-weight: 750; letter-spacing: -.02em; color: color-mix(in srgb, var(--brand) 80%, var(--text)); }
+.detail .price { font-size: 27px; margin: 10px 0 2px; }
+/* The offer and the button stay within reach while the rest of the card
+   scrolls past, which is the one action this screen exists for. */
+.actionbar {
+ position: sticky; z-index: 3;
+ bottom: calc(var(--bar) + 10px + env(safe-area-inset-bottom));
+ margin: 20px -4px 0; padding: 12px 14px 14px;
+ border: 1px solid var(--line); border-radius: 18px;
+ background: color-mix(in srgb, var(--panel) 92%, var(--bg));
+ backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+ box-shadow: var(--shadow);
+}
+.actionbar .offerfield { margin-top: 0; }
+.actionbar .primary { margin-top: 10px; }
 
-.detail { padding-bottom: 16px; }
-.carousel { position: relative; margin: 16px 0 8px; }
-.carousel img { width: 100%; border-radius: 14px; display: block; background: var(--panel); }
-.nophoto { padding: 64px 0; text-align: center; color: var(--muted); background: var(--panel); border-radius: 14px; }
+/* Carousel dots: how many photos there are, without reading the line. */
+.dots { position: absolute; left: 0; right: 0; bottom: 12px; display: flex; justify-content: center; gap: 6px; }
+.dot {
+ width: 7px; height: 7px; padding: 0; border: 0; border-radius: 999px;
+ background: rgb(255 255 255 / .5); box-shadow: 0 1px 3px rgb(0 0 0 / .4);
+ transition: width .24s var(--rise), background .24s ease;
+}
+.dot.on { width: 20px; background: #fff; }
+
+.empty { color: var(--muted); padding: 40px 8px; text-align: center; line-height: 1.5; }
+.more, .primary, .secondary {
+ display: block; width: 100%; margin: 14px 0 0; padding: 14px 16px;
+ border: 0; border-radius: 14px; font-weight: 650; text-align: center;
+ transition: transform .12s ease, opacity .15s;
+}
+.more:active, .primary:active, .secondary:active { transform: scale(.985); }
+.more, .secondary { background: var(--surface); color: var(--text); border: 1px solid var(--line); }
+.primary { background: var(--sweep); color: #fff; text-decoration: none; box-shadow: 0 8px 22px -12px var(--brand); }
+.primary:disabled, .secondary:disabled { opacity: .5; box-shadow: none; }
+
+.detail { padding-bottom: 8px; }
+.carousel { position: relative; margin: 18px 0 10px; }
+.carousel img {
+ width: 100%; border-radius: var(--radius); display: block;
+ background: var(--raised); opacity: 0; transition: opacity .25s ease-out;
+}
+.carousel img.ready { opacity: 1; }
+.nophoto { padding: 72px 0; text-align: center; color: var(--muted); background: var(--raised); border-radius: var(--radius); }
 .arrow {
  position: absolute; top: 50%; transform: translateY(-50%);
- border: 0; border-radius: 999px; width: 40px; height: 40px; font-size: 22px; line-height: 1;
- background: color-mix(in srgb, var(--bg) 70%, transparent); color: var(--text); cursor: pointer;
+ border: 0; border-radius: 999px; width: 42px; height: 42px; font-size: 22px; line-height: 1;
+ background: rgb(10 14 20 / .55); color: #fff;
+ backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
 }
-.arrow.left { left: 8px; }
-.arrow.right { right: 8px; }
-.photolabel { color: var(--muted); font-size: 12px; text-align: center; margin: 6px 0 0; }
+.arrow.left { left: 10px; }
+.arrow.right { right: 10px; }
+.photolabel { color: var(--muted); font-size: 11.5px; letter-spacing: .03em; text-align: center; margin: 8px 0 0; }
 .included { color: var(--muted); font-size: 14px; }
-
-.status {
- position: fixed; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom));
- margin: 0; padding: 10px 14px; border-radius: 12px; text-align: center; font-size: 14px;
- background: var(--panel); color: var(--text);
-}
-.status.error { background: #8b3535; color: #fff; }
-
-/* The four tabs. They sit above the searchbar, which is also sticky, so the
-   searchbar's offset below is measured from the same height. */
-.tabs {
- position: sticky; top: 0; z-index: 3;
- display: flex; gap: 6px; height: var(--tabs); align-items: center;
- margin: 0 -16px; padding: 0 16px;
- background: var(--bg); border-bottom: 1px solid var(--line);
-}
-.tabs button {
- flex: 1; min-width: 0; padding: 9px 4px; border: 0; border-radius: 10px;
- background: transparent; color: var(--muted); font: inherit; font-size: 14.5px; cursor: pointer;
-}
-.tabs button.active { background: var(--panel); color: var(--text); font-weight: 600; }
-.badge {
- display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 3px;
- border-radius: 999px; background: var(--accent); color: var(--accentText);
- font-size: 11px; font-weight: 700; line-height: 18px; text-align: center;
-}
-.searchbar { top: var(--tabs); }
-.panel { padding-bottom: 72px; }
-
-/* Filters. One chip per group is active; the first chip in each group is the
-   group switched off, which is why it starts active. */
-.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
-.chip {
- padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px;
- background: transparent; color: var(--muted); font: inherit; font-size: 13.5px; cursor: pointer;
-}
-.chip.active { background: var(--accent); color: var(--accentText); border-color: transparent; font-weight: 600; }
-details { margin: 0 0 10px; }
-summary { color: var(--muted); font-size: 13.5px; padding: 4px 0; cursor: pointer; }
-.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin: 6px 0 2px; }
-label { display: block; color: var(--muted); font-size: 13px; margin: 8px 0 0; }
-label input, label select, label textarea {
- display: block; width: 100%; margin-top: 4px; padding: 10px 12px;
- border: 1px solid var(--line); border-radius: 10px;
- background: var(--panel); color: var(--text); font: inherit; font-size: 16px;
-}
-label textarea { resize: vertical; }
-.hint { color: var(--muted); font-size: 12.5px; }
-.secondary:disabled, .primary:disabled { opacity: .55; }
 
 /* Cart rows. The thumbnail keeps the grid's aspect ratio at a width that
    leaves room for the offer field beside it. */
-.cartrow { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
-.cartrow .frame { width: 72px; flex: none; }
+.cartrow { display: flex; gap: 13px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.cartrow .frame { width: 76px; flex: none; }
 .cartbody { min-width: 0; flex: 1; }
 .cartbody .name { font-size: 14.5px; font-weight: 600; }
-.gone { color: #e4845a; }
-.offerfield { display: block; color: var(--muted); font-size: 13px; margin-top: 8px; }
-.offerfield input, .offerfield textarea {
- display: block; width: 100%; margin-top: 4px; padding: 10px 12px;
- border: 1px solid var(--line); border-radius: 10px;
- background: var(--panel); color: var(--text); font: inherit; font-size: 16px;
-}
-.linkbutton { border: 0; background: none; padding: 6px 0 0; color: var(--accent); font: inherit; font-size: 13.5px; cursor: pointer; }
+.gone { color: #ff7a59; font-weight: 600; }
+.offerfield { display: block; color: var(--muted); font-size: 12.5px; font-weight: 500; margin-top: 10px; }
+.linkbutton { border: 0; background: none; padding: 8px 0 0; color: #ff7a59; font-size: 13px; font-weight: 600; }
+#cartSummary { margin-top: 18px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+#cartSummary .price { font-size: 22px; }
 
 /* The catalogue finder, shared by listing a card and asking for one. */
-.results { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 0; }
+.results { display: flex; flex-direction: column; gap: 7px; margin: 10px 0 0; }
 .result {
- text-align: left; padding: 11px 13px; border: 1px solid var(--line); border-radius: 10px;
- background: var(--panel); color: var(--text); font: inherit; font-size: 14.5px; cursor: pointer;
+ text-align: left; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px;
+ background: var(--surface); color: var(--text); font-size: 14.5px;
+ transition: border-color .15s, transform .12s;
 }
-.chosen { font-size: 16px; font-weight: 600; margin: 12px 0 0; }
-.uploads { display: flex; gap: 8px; margin: 10px 0 0; }
+.result:active { transform: scale(.99); }
+.chosen {
+ font-size: 16px; font-weight: 650; margin: 14px 0 0; padding: 12px 14px;
+ border-radius: 12px; background: var(--raised);
+ border-left: 3px solid var(--brand);
+}
+.uploads { display: flex; gap: 10px; margin: 12px 0 0; }
 .filebutton {
- flex: 1; margin: 0; padding: 11px 12px; border: 1px dashed var(--line); border-radius: 10px;
- color: var(--text); font-size: 13.5px; text-align: center; cursor: pointer;
+ flex: 1; position: relative; margin: 0; padding: 14px 12px;
+ border: 1px dashed color-mix(in srgb, var(--brand) 45%, var(--line));
+ border-radius: 12px; background: color-mix(in srgb, var(--brand) 6%, transparent);
+ color: var(--text); font-size: 13px; font-weight: 550; text-align: center;
 }
-.filebutton input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.filebutton input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 
-.submission { padding: 12px 0; border-bottom: 1px solid var(--line); }
+.submission {
+ padding: 14px; margin-top: 10px; border: 1px solid var(--line);
+ border-radius: 14px; background: var(--surface);
+}
 .submission .name { font-size: 14.5px; font-weight: 600; }
-.submission .state { font-size: 13px; color: var(--accent); }
+.submission .state {
+ display: inline-block; margin-top: 7px; padding: 3px 10px; border-radius: 999px;
+ background: color-mix(in srgb, var(--brand) 16%, transparent);
+ color: color-mix(in srgb, var(--brand) 85%, var(--text));
+ font-size: 11.5px; font-weight: 650;
+}
+
+.status {
+ position: fixed; left: 16px; right: 16px; bottom: calc(var(--bar) + 14px + env(safe-area-inset-bottom));
+ z-index: 5; margin: 0; padding: 12px 16px; border-radius: 14px; text-align: center;
+ font-size: 14px; font-weight: 500;
+ background: color-mix(in srgb, var(--panel) 92%, var(--text) 8%);
+ color: var(--text);
+ box-shadow: var(--shadow);
+}
+.status.error { background: #c0392b; color: #fff; }
+
+/* Motion. Short, and all of it goes away for anyone who has asked their
+   phone for less of it. */
+@keyframes rise {
+ from { opacity: 0; transform: translateY(12px) scale(.98); }
+ to { opacity: 1; transform: none; }
+}
+@keyframes fadeUp {
+ from { opacity: 0; transform: translateY(7px); }
+ to { opacity: 1; transform: none; }
+}
+@keyframes pop {
+ 0% { transform: scale(1); }
+ 45% { transform: scale(1.4); }
+ 100% { transform: scale(1); }
+}
+/* Cards arrive in order, about a frame apart, capped so a full page does not
+   end in a visible queue. `backwards` holds the first frame during the delay,
+   or they would flash in at full opacity first. */
+.card {
+ animation: rise .3s var(--rise) backwards;
+ animation-delay: calc(var(--i, 0) * 26ms);
+}
+.card.settled { animation: none; }
+.panel:not([hidden]) { animation: fadeUp .24s ease-out; }
+.result, .cartrow, .submission { animation: fadeUp .22s ease-out backwards; }
+.badge.pop { animation: pop .36s cubic-bezier(.34, 1.56, .64, 1); }
+@media (prefers-reduced-motion: reduce) {
+ *, *::before, *::after {
+  animation-duration: .001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: .001ms !important;
+ }
+}
