@@ -42,13 +42,14 @@
 }
 
 .batchBadge{display:block;margin-top:8px;font-size:11px;padding:8px;color:#305b3b;text-align:left}
-.batchTemplate,.batchCard{background:#fff;border:1px solid #dce2d6;border-radius:12px;padding:20px;margin:18px 0}
-.batchTemplate label{display:block;margin:14px 0 6px}.batchTemplate textarea,.batchCard textarea{width:100%;resize:vertical;line-height:1.6}
+.batchTemplate,.batchCard,.collectionCard{background:#fff;border:1px solid #dce2d6;border-radius:12px;padding:20px;margin:18px 0}
+.batchTemplate label{display:block;margin:14px 0 6px}.batchTemplate textarea,.batchCard textarea,.collectionCard textarea{width:100%;resize:vertical;line-height:1.6}
 .batchHeading{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.batchHeading h2{font-size:20px;margin:0;overflow-wrap:anywhere}
 .batchStatus{font-size:12px;background:#e7efdf;padding:6px 10px;border-radius:12px}.needsUpdate{background:#fff0d4;color:#805b10}
+.collectionCard details{margin:12px 0}.collectionCard details input,.collectionCard details textarea{display:block;width:100%;margin:10px 0}.collectionCard details button{margin:0 8px 8px 0}.collectionCard a{display:inline-block;max-width:100%;overflow-wrap:anywhere;color:#376c44}.collectionCard .hint{overflow-wrap:anywhere}
 .batchActions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.batchCard details{margin:12px 0}.batchCard details input{display:block;width:100%;margin:10px 0}.batchCard details button{margin:0 8px 8px 0}.batchCard a{display:inline-block;max-width:100%;overflow-wrap:anywhere;color:#376c44}.batchCard .hint{overflow-wrap:anywhere}
 #batchDialog label{display:block;margin:14px 0 6px}#batchDialog input,#batchDialog select{width:100%}
-@media(max-width:750px){.tabs{overflow-x:auto}.tabs button{flex:0 0 auto}.batchTemplate,.batchCard{padding:16px}.batchActions button{flex:1}#makeBatch,#unassignedLabel{grid-column:1/-1}#carousellPanel{min-width:0}.batchCard{scroll-margin-top:16px}}
+@media(max-width:750px){.tabs{overflow-x:auto}.tabs button{flex:0 0 auto}.batchTemplate,.batchCard,.collectionCard{padding:16px}.batchActions button{flex:1}#makeBatch,#unassignedLabel{grid-column:1/-1}#carousellPanel{min-width:0}.batchCard,.collectionCard{scroll-margin-top:16px}}
 
 /* Visual catalogue autocomplete; source images are previews, not listing photos. */
 .results{max-height:420px;overscroll-behavior:contain}
@@ -84,3 +85,9 @@
 #centralPanel input[type=search]{width:280px;max-width:100%}
 #centralPanel td.centralSeller{white-space:nowrap;font-weight:600;color:#36563c}
 @media(max-width:750px){#centralPanel input[type=search]{width:100%;margin:8px 0}}
+/* Collections sit above the hand-picked batches and borrow their card. The
+   new-collection form is the template editor's box with a rule field. */
+.sectionHeading{font-size:18px;margin:26px 0 4px}
+#newCollection{background:#fff;border:1px solid #dce2d6;border-radius:12px;padding:20px;margin:18px 0}
+#newCollection label{display:block;margin:14px 0 6px}
+#newCollection input,#newCollection textarea{width:100%;resize:vertical;line-height:1.6}

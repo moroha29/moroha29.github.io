@@ -22,10 +22,15 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
    {seller:'House',owner:0,units:1,soldUnits:0,spent:100000,revenue:0,soldCost:0,inventoryCost:100000},
    {seller:'@dealer',owner:68214,units:1,soldUnits:0,spent:50000,revenue:0,soldCost:0,inventoryCost:50000}],
   totals:{Units:2,SoldUnits:0,Spent:150000,Revenue:0,SoldCost:0,InventoryCost:150000,ConsignmentPayout:0,ConsignmentFees:0,Expenses:0}};
- let carousellBatches=[],batchNext=1,template={intro:'Tap a card link → Start in Telegram → view photos or make an offer.',item:'{card} ({condition}) - S${price}\n{link}',outro:'',revision:0};
+ let carousellBatches=[],batchNext=1,carousellCollections=[],collectionNext=1,template={intro:'Tap a card link → Start in Telegram → view photos or make an offer.',item:'{card} ({condition}) - S${price}\n{link}',outro:'',revision:0};
  const batchView=b=>{const items=b.ids.map(id=>{const row=stock.find(r=>r.stockId===id);return row?{stockId:id,name:row.name,condition:row.condition,price:row.price,sold:row.sold,deleted:false}:{stockId:id,name:'Deleted card',price:0,deleted:true};});
  const live=items.filter(i=>!i.sold&&!i.deleted);const description=live.length?[template.intro,...live.map(i=>template.item.replaceAll('{card}',i.name).replaceAll('{condition}',i.condition).replaceAll('{price}',(i.price/100).toFixed(2)).replaceAll('{link}','https://t.me/testbot?start=listing_'+i.stockId)),template.outro].filter(Boolean).join('\n\n'):'';
  return {...b,items,description,status:b.posted===undefined?'Prepared':b.posted===description?'Posted':'Needs update'};};
+ const collectionMatch=(rules,row)=>String(rules||'').split('\n').map(r=>r.trim().toLowerCase()).filter(Boolean)
+  .some(rule=>row.name.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).includes(rule));
+ const collectionView=c=>{const items=stock.filter(r=>!r.sold&&collectionMatch(c.rules,r)).map(r=>({stockId:r.stockId,name:r.name,condition:r.condition,price:r.price,sold:false,deleted:false}));
+ const description=items.length?[template.intro,...items.map(i=>template.item.replaceAll('{card}',i.name).replaceAll('{condition}',i.condition).replaceAll('{price}',(i.price/100).toFixed(2)).replaceAll('{link}','https://t.me/testbot?start=listing_'+i.stockId)),template.outro].filter(Boolean).join('\n\n'):'';
+ return {...c,items,description,truncated:false,status:c.posted===undefined?'Prepared':c.posted===description?'Posted':'Needs update'};};
  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABQAAAAeCAIAAACjcKk8AAAAHklEQVR4nGPoWNVBNmIY1TyqeVTzqOZRzaOah7NmAIrvDC0dEI/8AAAAAElFTkSuQmCC','base64');
  await page.route('https://bilgewatermarket.com/assets/**',route=>route.fulfill({contentType:'image/png',body:png}));
  await page.route('https://cdn.snkrdunk.com/card.png',route=>route.fulfill({contentType:'image/png',body:png}));
@@ -38,10 +43,10 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
   if(req.method()==='OPTIONS'){await route.fulfill({status:204,headers});return;}
   const action=new URL(req.url()).pathname.split('/').pop();
   const body=action==='upload'?{}:req.postDataJSON();let result;
-  if(action==='login'){assert.equal(body.bootstrap,true);result={token:'a'.repeat(96),inventory:{expenses,trades,jpyPerSgd:entryRate,drafts,stock,bot:'testbot',totals:{InventoryCost:150,Revenue:500,SoldCost:200,Spent:350,ConsignmentPayout:0,Expenses:50,House:{InventoryCost:100,Revenue:300,SoldCost:120,Spent:220,ConsignmentPayout:0}},carousell:{template,batches:carousellBatches.map(batchView)}}};}
+  if(action==='login'){assert.equal(body.bootstrap,true);result={token:'a'.repeat(96),inventory:{expenses,trades,jpyPerSgd:entryRate,drafts,stock,bot:'testbot',totals:{InventoryCost:150,Revenue:500,SoldCost:200,Spent:350,ConsignmentPayout:0,Expenses:50,House:{InventoryCost:100,Revenue:300,SoldCost:120,Spent:220,ConsignmentPayout:0}},carousell:{template,batches:carousellBatches.map(batchView),collections:carousellCollections.map(collectionView)}}};}
   else {assert.equal(req.headers().authorization,'Bearer '+'a'.repeat(96));
    if(action==='data')dataRequests++;
-   if(action==='data')result={limitedSeller,expenses,trades,jpyPerSgd:entryRate,drafts,stock,bot:'testbot',totals:{InventoryCost:150,Revenue:500,SoldCost:200,Spent:350,ConsignmentPayout:0,Expenses:50,House:{InventoryCost:100,Revenue:300,SoldCost:120,Spent:220,ConsignmentPayout:0}},carousell:{template,batches:carousellBatches.map(batchView)}};
+   if(action==='data')result={limitedSeller,expenses,trades,jpyPerSgd:entryRate,drafts,stock,bot:'testbot',totals:{InventoryCost:150,Revenue:500,SoldCost:200,Spent:350,ConsignmentPayout:0,Expenses:50,House:{InventoryCost:100,Revenue:300,SoldCost:120,Spent:220,ConsignmentPayout:0}},carousell:{template,batches:carousellBatches.map(batchView),collections:carousellCollections.map(collectionView)}};
    if(action==='search')searchRequests++;
    if(action==='search'&&body.query.toLowerCase()==='neo')result=Array.from({length:45},(_,i)=>({id:80000+i,name:'Pikachu Neo '+i,thumbnailUrl:'https://cdn.snkrdunk.com/card.png'})).slice(body.offset||0,(body.offset||0)+40);
    else if(action==='search'&&body.query.toLowerCase()==='riftbound')result=[{id:2000000001,brandId:'riftbound',name:'Annie EN normal'},{id:2000000002,brandId:'riftbound',name:'Annie CN normal'}];
@@ -89,6 +94,13 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
      assert(body.ids.every(id=>!carousellBatches.some(b=>b.ids.includes(id))));
      for(let i=0;i<body.ids.length;i+=body.size){const id=batchNext++;carousellBatches.push({id,name:body.name||'Batch #'+id,url:'',revision:1,ids:body.ids.slice(i,i+body.size)});}
     }else if(body.action==='template'){template={...body.template,revision:template.revision+1};}
+    else if(body.action==='collection-create'){const id=collectionNext++;carousellCollections.push({id,name:body.name,rules:body.rules,url:'',revision:1});}
+    else if(body.action.startsWith('collection-')){const c=carousellCollections.find(c=>c.id===body.id);assert.equal(c.revision,body.revision);
+     if(body.action==='collection-remove')carousellCollections=carousellCollections.filter(x=>x.id!==body.id);
+     // Name and rules land before the hash is taken, as they do on the host:
+     // marking a post as posted records the rule being saved in that call.
+     else {c.name=body.name;c.rules=body.rules;c.url=body.url;if(body.action==='collection-posted')c.posted=collectionView(c).description;c.revision++;}
+    }
     else {const b=carousellBatches.find(b=>b.id===body.id);assert.equal(b.revision,body.revision);
      if(body.action==='remove')carousellBatches=carousellBatches.filter(b=>b.id!==body.id);
      else {if(body.action==='posted')b.posted=batchView(b).description;b.name=body.name;b.url=body.url;b.revision++;}
@@ -218,6 +230,63 @@ if(process.env.INVENTORY_SCREENSHOT)await page.screenshot({path:process.env.INVE
  await batch.locator('summary').last().click();await batch.locator('[data-action=ungroup]').click();await page.locator('#confirmYes').click();await page.waitForFunction(()=>document.querySelectorAll('.batchCard').length===2);assert.equal(stock.length,19,'ungroup deleted inventory');
  await page.locator('[data-tab=stock]').click();await page.locator('#unassigned').check();assert.equal(await page.locator('#rows tr').count(),8);
  console.log('PASS: Carousell 9-card batches, copy, badges, templates, sold updates, duplicate prevention and ungroup');
+
+ // A collection is one post whose cards are a rule rather than a hand-picked
+ // list: it has to pick up new stock on its own, leave sold stock behind, and
+ // never claim a card just because a rarity code is a substring of its name.
+ stock=[
+  {stockId:4001,cardId:93097,name:'Pikachu AR [151C 170/151]',condition:'NM',cost:99999,price:4200,photos:['front'],revision:1,sold:false},
+  {stockId:4002,cardId:93097,name:'Mew ex [SVM 050/175] High Class Pack Shiny Treasure ex',condition:'NM',cost:99999,price:8800,photos:['front'],revision:1,sold:false},
+  {stockId:4003,cardId:93097,name:'Charizard ex [SV3 006/108]',condition:'NM',cost:99999,price:12000,photos:['front'],revision:1,sold:false}];
+ await page.locator('#refresh').click();await page.locator('[data-tab=carousell]').click();
+ await page.locator('#newCollection summary').click();
+ await page.locator('#collectionName').fill('All shiny and AR');
+ await page.locator('#collectionRules').fill('ar\nshiny');
+ await page.locator('#createCollection').click();
+ await page.waitForFunction(()=>document.querySelectorAll('.collectionCard').length===1);
+ const collection=page.locator('.collectionCard').first();
+ let text=await collection.locator('textarea').first().inputValue();
+ assert(text.includes('Pikachu AR'),'the AR rule should have caught the Art Rare');
+ assert(text.includes('Shiny Treasure'),'the shiny rule should have caught the set');
+ assert(!text.includes('Charizard'),'AR must not match the letters inside Charizard');
+ assert(text.includes('S$42.00')&&text.includes('S$88.00'),'the post carries the asking prices');
+ assert(!text.includes('999.99'),'a cost price reached the Carousell description');
+ await collection.locator('[data-action=posted]').click();await page.locator('#confirmYes').click();
+ await page.waitForFunction(()=>document.querySelector('.collectionCard .batchStatus').textContent==='Posted');
+
+ // Newly listed stock joins without anyone touching the collection, which is
+ // the whole point, and the post is told that it has drifted.
+ stock.push({stockId:4004,cardId:93097,name:'Umbreon AR [SV4a 203/190]',condition:'NM',cost:99999,price:33000,photos:['front'],revision:1,sold:false});
+ await page.locator('#refresh').click();
+ await page.waitForFunction(()=>document.querySelector('.collectionCard .batchStatus').textContent==='Needs update');
+ text=await collection.locator('textarea').first().inputValue();
+ assert(text.includes('Umbreon AR'),'a newly listed AR card should have joined the collection');
+
+ // Selling one takes it out again.
+ stock[0].sold=true;await page.locator('#refresh').click();
+ await page.waitForFunction(()=>!document.querySelector('.collectionCard textarea').value.includes('Pikachu AR'));
+
+ // The same card may sit in a collection and a hand-picked batch at once.
+ await page.locator('[data-tab=stock]').click();await page.locator('#all').check();await page.locator('#makeBatch').click();await page.locator('#batchCreate').click();
+ await page.locator('[data-tab=carousell]').click();
+ await page.waitForFunction(()=>document.querySelectorAll('.collectionCard').length===1);
+ assert((await collection.locator('textarea').first().inputValue()).includes('Umbreon AR'),'a card in a batch should still be in the collection');
+
+ // Editing the rule re-decides membership.
+ await collection.locator('summary').last().click();
+ await collection.locator('textarea[aria-label="Collection rules, one search per line"]').fill('shiny');
+ await collection.locator('[data-action=details]').click();
+ await page.waitForFunction(()=>document.querySelector('#status').textContent==='Collection saved.');
+ text=await collection.locator('textarea').first().inputValue();
+ assert(text.includes('Shiny Treasure')&&!text.includes('Umbreon AR'),'the narrowed rule should have dropped the AR cards');
+
+ for(const width of [320,390,750]){await page.setViewportSize({width,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'collection panel overflows '+width);}
+ await page.setViewportSize({width:390,height:844});
+
+ await collection.locator('summary').last().click(); await collection.locator('[data-action=deleteCollection]').click();await page.locator('#confirmYes').click();
+ await page.waitForFunction(()=>document.querySelectorAll('.collectionCard').length===0);
+ assert.equal(stock.length,4,'deleting a collection deleted inventory');
+ console.log('PASS: Carousell collections by rule, new stock joining, sold leaving, batch overlap, rule edits and delete');
  await page.locator('[data-tab=drafts]').click();await page.locator('#addCustom').click();
  await page.locator('#quickCustomName').fill('Eeveelutions nine-card set');await page.locator('#quickRaw').click();
  await page.locator('#quickCurrency').selectOption('SGD');await page.locator('#quickCost').fill('200');await page.locator('#quickPrice').fill('250');const largePhoto=await page.evaluate(async()=>{const c=document.createElement('canvas');c.width=100;c.height=200;const x=c.getContext('2d');x.fillStyle='red';x.fillRect(0,0,100,100);x.fillStyle='blue';x.fillRect(0,100,100,100);const b=await new Promise(r=>c.toBlob(r,'image/png'));return Array.from(new Uint8Array(await b.arrayBuffer()));});
@@ -263,7 +332,7 @@ if(process.env.INVENTORY_SCREENSHOT)await page.screenshot({path:process.env.INVE
  console.log('PASS: stalled request aborts, unlocks and recovers without duplicate writes');
 
  // Trade allocation and operating expenses stay private and work on a phone.
- stock=[{stockId:9001,cardId:93097,name:'Outgoing card',condition:'NM',cost:20000,price:30000,photos:['front'],revision:1,sold:false}];carousellBatches=[];
+ stock=[{stockId:9001,cardId:93097,name:'Outgoing card',condition:'NM',cost:20000,price:30000,photos:['front'],revision:1,sold:false}];carousellBatches=[];carousellCollections=[];
  drafts=[{id:'a'.repeat(24),cardId:93097,name:'Incoming A',condition:'NM',cost:10000,price:15000,photos:['front'],revision:1},{id:'b'.repeat(24),cardId:93097,name:'Incoming B',condition:'NM',cost:20000,price:30000,photos:['front'],revision:1}];
  await page.locator('#refresh').click();await page.waitForFunction(()=>document.querySelector('#draftCount').textContent==='2');
  await page.locator('[data-tab=stock]').click();await page.locator('#unassigned').uncheck();await page.locator('#all').check();await page.locator('#trade').click();

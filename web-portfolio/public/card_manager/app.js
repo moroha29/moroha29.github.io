@@ -2,7 +2,7 @@
 (() => {
 const $=id=>document.getElementById(id);
 let limitedSeller=false, token='', tab='drafts', drafts=[], stock=[], selected=new Set(), dirty=new Set(), busy=false, bot='jhcardbot', searchSeq=0;
-let batches=[],template={},templateDirty=false,entryRate=0,expenses=[],trades=[];
+let batches=[],collections=[],template={},templateDirty=false,entryRate=0,expenses=[],trades=[];
 // The combined inventory is held apart from `stock` on purpose. `stock` is
 // this account's own and every edit path writes to it; these rows belong to
 // other sellers and are only ever read, so mixing them would put another
@@ -41,14 +41,14 @@ async function api(path,body={},blob=false,signal){
  }catch(e){if(timeout.aborted)throw Error('Request timed out. Reload inventory before retrying changes.');throw e;}
 }
 
-function signOut(clear=true){token='';const md=document.getElementById('marketplaceDialog');if(md){md.close();md.replaceChildren();}$('quickEntry').close();clearQuickPhotos();entryRate=0;quickCard=null;batches=[];expenses=[];trades=[];$('expenses').replaceChildren();$('trades').replaceChildren();['tradeDialog','expenseDialog','saleEntry'].forEach(id=>$(id).close());template={};templateDirty=false;$('batches').replaceChildren();['templateIntro','templateItem','templateOutro'].forEach(id=>$(id).value='');searchSeq++;clearTimeout(searchTimer);searchAbort?.abort();searchCache.clear();photoLoads.clear();drafts=[];stock=[];selected.clear();dirty.clear();centralRows=[];centralSellers=[];centralTotals=null;centralLoaded=false;centralOwner='all';$('centralRows').replaceChildren();$('centralSeller').replaceChildren();delete $('centralSeller').dataset.owners;$('centralFilter').value='';for(const url of photos.values())URL.revokeObjectURL(url);photos.clear();photoSizes.clear();photoBytes=0;photoObserver.disconnect();referenceObserver.disconnect();referenceLoads.clear();$('rows').replaceChildren();$('results').replaceChildren();$('workspace').hidden=true;$('login').hidden=false;$('logout').hidden=true;$('password').value='';if(clear)status('Signed out.');}
+function signOut(clear=true){token='';const md=document.getElementById('marketplaceDialog');if(md){md.close();md.replaceChildren();}$('quickEntry').close();clearQuickPhotos();entryRate=0;quickCard=null;expenses=[];trades=[];$('expenses').replaceChildren();$('trades').replaceChildren();['tradeDialog','expenseDialog','saleEntry'].forEach(id=>$(id).close());template={};templateDirty=false;batches=[];collections=[];$('batches').replaceChildren();$('collections').replaceChildren();['templateIntro','templateItem','templateOutro'].forEach(id=>$(id).value='');searchSeq++;clearTimeout(searchTimer);searchAbort?.abort();searchCache.clear();photoLoads.clear();drafts=[];stock=[];selected.clear();dirty.clear();centralRows=[];centralSellers=[];centralTotals=null;centralLoaded=false;centralOwner='all';$('centralRows').replaceChildren();$('centralSeller').replaceChildren();delete $('centralSeller').dataset.owners;$('centralFilter').value='';for(const url of photos.values())URL.revokeObjectURL(url);photos.clear();photoSizes.clear();photoBytes=0;photoObserver.disconnect();referenceObserver.disconnect();referenceLoads.clear();$('rows').replaceChildren();$('results').replaceChildren();$('workspace').hidden=true;$('login').hidden=false;$('logout').hidden=true;$('password').value='';if(clear)status('Signed out.');}
 async function task(fn){if(busy)return;lock(true);try{await fn();}catch(e){status(e.message,true);}finally{lock(false);if(!$('workspace').hidden)render();}}
 async function load(preserve=false,initialData){
  const pending=preserve?[...drafts,...stock].filter(r=>dirty.has(key(r))):[];
  const data=initialData||await api('data');limitedSeller=!!data.limitedSeller;$('accountingPanel').hidden=limitedSeller;document.querySelector('[data-tab=carousell]').hidden=limitedSeller;document.querySelector('[data-tab=central]').hidden=limitedSeller;$('saveEntryRate').hidden=limitedSeller;$('entryRate').readOnly=limitedSeller;if(limitedSeller&&(tab==='carousell'||tab==='central'))tab='drafts';
  // A seller must not keep another seller's rows in memory across a sign-out
  // and a sign-in as someone else in the same browser tab.
- if(limitedSeller){centralRows=[];centralSellers=[];centralTotals=null;centralLoaded=false;centralOwner='all';}drafts=data.drafts||[];stock=(data.stock||[]).map(r=>({...r,sale:r.sold?r.sale:r.price}));bot=data.bot||bot;entryRate=data.jpyPerSgd||0;$('entryRate').value=entryRate||'';batches=data.carousell?.batches||[];if(!templateDirty){template=data.carousell?.template||{};$('templateIntro').value=template.intro||'';$('templateItem').value=template.item||'';$('templateOutro').value=template.outro||'';}selected.clear();dirty.clear();
+ if(limitedSeller){centralRows=[];centralSellers=[];centralTotals=null;centralLoaded=false;centralOwner='all';}drafts=data.drafts||[];stock=(data.stock||[]).map(r=>({...r,sale:r.sold?r.sale:r.price}));bot=data.bot||bot;entryRate=data.jpyPerSgd||0;$('entryRate').value=entryRate||'';batches=data.carousell?.batches||[];collections=data.carousell?.collections||[];if(!templateDirty){template=data.carousell?.template||{};$('templateIntro').value=template.intro||'';$('templateItem').value=template.item||'';$('templateOutro').value=template.outro||'';}selected.clear();dirty.clear();
  expenses=data.expenses||[];trades=data.trades||[];renderAccounting();
  const t=data.totals,house=t.House||{};$('totals').replaceChildren();
  // The stock figures span every seller. Expenses are the house ledger and
@@ -112,7 +112,7 @@ function render(){
  const averages=inventoryAverages();
  $('draftCount').textContent=drafts.length;$('stockCount').textContent=stock.filter(r=>!r.sold).length;$('soldCount').textContent=stock.filter(r=>r.sold).length;
  document.querySelectorAll('[data-tab]').forEach(n=>n.classList.toggle('active',n.dataset.tab===tab));
- $('batchCount').textContent=batches.length;const isBatch=tab==='carousell',isCentral=tab==='central',isPanel=isBatch||isCentral;['inventoryToolbar','inventoryTable','inventoryHint','context'].forEach(id=>$(id).hidden=isPanel);$('carousellPanel').hidden=!isBatch;$('centralPanel').hidden=!isCentral;if(isCentral)renderCentral();$('makeBatch').hidden=limitedSeller||tab!=='stock';$('unassignedLabel').hidden=limitedSeller||tab!=='stock';if(isBatch)renderBatches();
+ $('batchCount').textContent=batches.length;const isBatch=tab==='carousell',isCentral=tab==='central',isPanel=isBatch||isCentral;['inventoryToolbar','inventoryTable','inventoryHint','context'].forEach(id=>$(id).hidden=isPanel);$('carousellPanel').hidden=!isBatch;$('centralPanel').hidden=!isCentral;if(isCentral)renderCentral();$('makeBatch').hidden=limitedSeller||tab!=='stock';$('unassignedLabel').hidden=limitedSeller||tab!=='stock';if(isBatch){renderCollections();renderBatches();}
  $('addPanel').hidden=tab!=='drafts';$('publish').hidden=tab!=='drafts';$('sell').hidden=tab==='drafts';$('sell').textContent=tab==='sold'?'Edit sold price':'Mark sold';$('sellTogether').hidden=tab!=='stock';$('trade').hidden=limitedSeller||tab!=='stock';$('save').hidden=tab==='sold';
  $('context').textContent=tab==='drafts'?'Add cards, then Submit selected. Photos are optional; add them now or later.':tab==='sold'?'Sold prices can be corrected. Delete permanently removes the selected cards from accounting totals.':'Select cards → Mark sold → enter the sale price.';
  const rows=shown();photoObserver.disconnect();$('rows').replaceChildren();$('empty').hidden=rows.length>0;
@@ -415,6 +415,36 @@ $('remove').onclick=()=>task(async()=>{
  await load(true);failures.forEach(k=>selected.add(k));render();status(failures.size?'Some rows could not be deleted. Refresh and review.':'Deleted selected rows.',failures.size>0);
 });
 
+function renderCollections(){
+ $('collections').textContent='';
+ if(!collections.length){$('collections').append(el('p','No collections yet. One search per line, and the post keeps itself current.','hint'));return;}
+ for(const c of collections){
+  const box=el('article',undefined,'collectionCard');box.id='collection-'+c.id;
+  const head=el('div',undefined,'batchHeading');head.append(el('h2',c.name),el('span',c.status,'batchStatus '+(c.status==='Needs update'?'needsUpdate':'')));box.append(head);
+  box.append(el('p',c.items.length+' available '+(c.items.length===1?'card':'cards')+' · '+c.description.length+' characters','hint'));
+  if(c.truncated)box.append(el('p','This rule matches more cards than one post can carry. The list stops at '+c.items.length+'; narrow the rule to choose which.','rowerror'));
+  if(c.status==='Needs update')box.append(el('p','Stock behind this rule changed. Copy the latest description and update your Carousell listing.','rowerror'));
+  const text=el('textarea');text.readOnly=true;text.rows=9;text.value=c.description;text.setAttribute('aria-label','Description for '+c.name);box.append(text);
+  const actions=el('div',undefined,'batchActions'),copy=el('button','Copy description','primary');copy.dataset.action='copy';copy.disabled=!c.items.length;if(!c.items.length)copy.dataset.fixed='true';copy.onclick=async()=>{
+   try{await navigator.clipboard.writeText(text.value);status('Description copied.');}catch{text.focus();text.select();status('Select and copy the description above.');}
+  };actions.append(copy);
+  const posted=el('button',c.status==='Prepared'?'Mark posted':'Mark updated');posted.dataset.action='posted';posted.onclick=()=>task(async()=>{
+   if(!await confirmAction(c.status==='Prepared'?'Already posted on Carousell?':'Updated your Carousell listing?','This records that the current description is on Carousell.',[]))return;
+   await api('carousell',{action:'collection-posted',id:c.id,revision:c.revision,name:c.name,rules:c.rules,url:c.url});await load(true);status('Carousell status saved.');
+  });actions.append(posted);box.append(actions);
+  const items=el('details');items.append(el('summary','Cards in this collection'));
+  c.items.forEach(i=>items.append(el('p',i.name+' · S$'+money(i.price)+' · '+i.condition,'hint')));box.append(items);
+  const details=el('details');details.append(el('summary','Collection details'));
+  const name=el('input');name.value=c.name;name.maxLength=150;name.setAttribute('aria-label','Collection name');
+  const rules=el('textarea');rules.value=c.rules;rules.rows=3;rules.setAttribute('aria-label','Collection rules, one search per line');
+  const url=el('input');url.value=c.url;url.type='url';url.placeholder='Carousell listing URL (optional)';url.setAttribute('aria-label','Carousell listing URL');
+  const save=el('button','Save details');save.dataset.action='details';save.onclick=()=>task(async()=>{await api('carousell',{action:'collection-save',id:c.id,revision:c.revision,name:name.value,rules:rules.value,url:url.value});await load(true);status('Collection saved.');});
+  const remove=el('button','Delete collection','danger');remove.dataset.action='deleteCollection';remove.onclick=()=>task(async()=>{if(!await confirmAction('Delete '+c.name+'?','Removes this collection. Your inventory and Telegram listings are kept, and no card is changed. Remove or update the Carousell post yourself.',[]))return;await api('carousell',{action:'collection-remove',id:c.id,revision:c.revision,name:c.name,rules:c.rules,url:c.url});await load(true);status('Collection deleted.');});
+  details.append(name,rules,url,save,remove);box.append(details);
+  if(c.url){const link=el('a','Open Carousell listing \u2197');link.href=c.url;link.target='_blank';link.rel='noopener noreferrer';box.append(link);}
+  $('collections').append(box);
+ }
+}
 function renderBatches(){
  $('batches').replaceChildren();
  if(!batches.length){$('batches').append(el('p','No batches yet. Select cards in Available to create one.'));return;}
@@ -444,6 +474,11 @@ function renderBatches(){
  }
 }
 ['templateIntro','templateItem','templateOutro'].forEach(id=>$(id).oninput=()=>templateDirty=true);
+$('createCollection').onclick=()=>task(async()=>{
+ await api('carousell',{action:'collection-create',name:$('collectionName').value,rules:$('collectionRules').value});
+ $('collectionName').value='';$('collectionRules').value='';$('newCollection').open=false;
+ await load(true);status('Collection created. Copy the description to get started.');
+});
 $('saveTemplate').onclick=()=>task(async()=>{
  await api('carousell',{action:'template',template:{intro:$('templateIntro').value,item:$('templateItem').value,outro:$('templateOutro').value,revision:template.revision||0}});
  templateDirty=false;await load(true);status('Template saved.');
