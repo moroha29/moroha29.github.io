@@ -1,8 +1,12 @@
-name: Publish private inventory page
+#  The manager and the Mini App shop moved to the card repository in November
+#  2026 and are published from its own Pages site at /card/. What is left here
+#  is a redirect at each old address, for bookmarks and for any menu button
+#  that has not been refreshed yet.
+name: Publish the inventory redirects
 on:
   push:
     branches: [main]
-    paths: ['web-portfolio/public/card_manager/**', 'web-portfolio/public/card_shop/**', '.github/workflows/deploy-inventory.yml', 'tests/inventory-browser.cjs', 'tests/shop-browser.cjs']
+    paths: ['web-portfolio/public/card_manager/**', 'web-portfolio/public/card_shop/**', '.github/workflows/deploy-inventory.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -14,6 +18,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -23,30 +28,10 @@ jobs:
       - uses: actions/checkout@v4
         with: {ref: gh-pages, path: published}
       - run: |
-          node --check source/web-portfolio/public/card_manager/app.js
-          node --check source/web-portfolio/public/card_shop/app.js
+          rm -rf published/card_manager published/card_shop
           mkdir -p published/card_manager published/card_shop
-          cp source/web-portfolio/public/card_manager/* published/card_manager/
-          cp source/web-portfolio/public/card_shop/* published/card_shop/
-      - name: Test inventory user flow
-        run: |
-          npm install --prefix "$RUNNER_TEMP/inventory-tests" playwright@1.64.1 --no-audit --no-fund
-          # Whichever browser this step settles on, the shop step below runs in
-          # its own shell and has to be told: an export here reaches nothing
-          # past this script, and Playwright's own chromium was never
-          # downloaded when the runner already had Chrome.
-          if command -v google-chrome >/dev/null 2>&1; then
-            echo "CHROMIUM_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
-            export CHROMIUM_PATH="$(command -v google-chrome)"
-          else
-            "$RUNNER_TEMP/inventory-tests/node_modules/.bin/playwright" install --with-deps chromium
-          fi
-          NODE_PATH="$RUNNER_TEMP/inventory-tests/node_modules" INVENTORY_SCREENSHOT="$RUNNER_TEMP/inventory-preview.png" node source/tests/inventory-browser.cjs
-          NODE_PATH="$RUNNER_TEMP/inventory-tests/node_modules" INVENTORY_WIDTH=390 INVENTORY_SCREENSHOT="$RUNNER_TEMP/inventory-phone.png" node source/tests/inventory-browser.cjs
-      - name: Test Mini App shop flow
-        run: |
-          NODE_PATH="$RUNNER_TEMP/inventory-tests/node_modules" SHOP_SCREENSHOT="$RUNNER_TEMP/shop-phone.png" node source/tests/shop-browser.cjs
-          NODE_PATH="$RUNNER_TEMP/inventory-tests/node_modules" SHOP_WIDTH=1440 node source/tests/shop-browser.cjs
+          cp source/web-portfolio/public/card_manager/index.html published/card_manager/
+          cp source/web-portfolio/public/card_shop/index.html published/card_shop/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with: {path: published}

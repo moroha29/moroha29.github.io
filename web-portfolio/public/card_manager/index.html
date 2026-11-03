@@ -1,64 +1,14 @@
-<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src blob: data: https://cdn.snkrdunk.com https://bilgewatermarket.com; connect-src https://dn0h8mmk7hu8r.cloudfront.net; base-uri 'none'; form-action 'none'"><link rel="preconnect" href="https://dn0h8mmk7hu8r.cloudfront.net" crossorigin><link rel="preconnect" href="https://cdn.snkrdunk.com"><title>Card inventory · Private</title><link rel="stylesheet" href="style.css"></head>
-<body><header><a href="/">JH<span> / Inventory</span></a><div class="private">● Private workspace</div><button id="logout" hidden>Sign out</button></header>
-<main>
-<section id="login" class="login"><div class="eyebrow">YOUR CARD SHOP</div><h1>Less tapping.<br>More getting things done.</h1><p>Manage your inventory, photos and prices in one place.</p><form id="loginForm"><label for="password">Inventory password</label><input id="password" type="password" autocomplete="current-password" required><button class="primary" type="submit">Open inventory →</button></form><p class="hint">First visit? Send <code>/webpassword</code> privately to @jhcardbot. Only the owner can create a password.</p></section>
-<section id="workspace" hidden>
-<div class="heading"><div><div class="eyebrow">CARD SHOP</div><h1>Your inventory</h1><p>Draft here. Publish to Telegram when ready.</p></div><div><button id="automationSettings">Automation &amp; marketplaces</button> <button id="refresh">Refresh</button></div></div>
-<div id="totals" class="totals"></div>
-<p id="totalsBasis" class="hint">Stock, sales and margin cover every seller. Expenses and net profit are the house only, because the expense ledger is not split between sellers.</p>
-<details id="accountingPanel"><summary>Expenses &amp; trade history</summary><p class="hint">Expenses reduce net profit. Trades carry cost forward without recording a sale.</p><button id="addExpense">Add expense</button><div id="expenses"></div><div id="trades"></div></details>
-<nav class="tabs"><button data-tab="drafts" class="active">Drafts <span id="draftCount">0</span></button><button data-tab="stock">Available <span id="stockCount">0</span></button><button data-tab="sold">Sold <span id="soldCount">0</span></button><button data-tab="carousell">Carousell <span id="batchCount">0</span></button><button data-tab="central" hidden>All sellers <span id="centralCount">0</span></button></nav>
-<section id="addPanel" class="addpanel"><div><label for="search">Find a card · Pokémon / Riftbound</label><input id="search" aria-controls="results" placeholder="Name, rarity, number, EN / CN or SNKRDUNK link" autocomplete="off"><div id="results" class="results" role="region" aria-label="Matching cards" aria-live="polite"></div></div><button id="addCustom">Custom listing / set</button><details><summary>Add several cards at once</summary><label for="links">One SNKRDUNK card link or product ID per line</label><textarea id="links" rows="4" placeholder="https://snkrdunk.com/apparels/93097"></textarea><button id="addLinks">Add rows</button><label class="filebutton">Match photos to rows<input id="bulkPhotos" type="file" accept="image/jpeg,image/png" multiple></label><p class="hint">Name files 1-front.jpg and 1-back.jpg for row 1, then 2-front.jpg and 2-back.jpg. Back is optional. JPG/PNG, up to 25 MB each. Photos are resized automatically.</p></details></section>
-<details class="entrySettings"><summary>JPY conversion</summary><label for="entryRate">1 SGD = JPY</label><input id="entryRate" type="number" min="0.0001" step="0.0001" placeholder="115"><button id="saveEntryRate">Save rate</button><p class="hint">Used for new costs only. Existing SGD amounts stay unchanged.</p></details>
-<div id="inventoryToolbar" class="toolbar"><label class="check"><input id="all" type="checkbox"> Select shown</label><span id="selected">0 selected</span><input id="filter" placeholder="Filter this list" aria-label="Filter inventory"><button id="save">Save selected</button><button id="publish" class="primary">Submit selected</button><button id="sell" hidden>Mark sold</button><button id="sellTogether" hidden>Sell together</button><button id="trade" hidden>Trade selected</button><button id="remove" class="danger">Delete selected</button><button id="makeBatch" hidden>Group for Carousell</button><label id="unassignedLabel" class="check" hidden><input id="unassigned" type="checkbox"> Ungrouped only</label><label id="photoBatch" class="filebutton" hidden>Upload photos</label></div>
-<p id="context" class="hint"></p>
-<div id="inventoryTable" class="tablewrap"><table><thead><tr><th></th><th>Card</th><th>Condition / grade</th><th>Cost · SGD <small>Private</small></th><th>Asking · SGD</th><th>Front</th><th>Back</th><th></th></tr></thead><tbody id="rows"></tbody></table><div id="empty" class="empty">No cards here yet.</div></div>
-<p id="inventoryHint" class="hint">Publishing shows photos, condition and asking price in your listings topic. Cost prices stay private. Mark sold preserves your sales history; deleting removes a card from totals.</p>
-<section id="centralPanel" hidden>
-<p class="hint">Every seller's stock in one place, so you can see what the shop holds before quoting a buyer. Read-only: each seller edits their own cards, and this view never changes them.</p>
-<div id="centralTotals" class="totals"></div>
-<label for="centralSeller">Seller</label><select id="centralSeller"></select>
-<input id="centralFilter" type="search" placeholder="Filter by card name, number or listing ID" aria-label="Filter the combined inventory">
-<button id="centralRefresh" type="button">Refresh</button>
-<div id="centralTable" class="tablewrap"><table><thead><tr><th>Seller</th><th>Card</th><th>Condition / grade</th><th>Cost · SGD</th><th>Asking · SGD</th><th>State</th></tr></thead><tbody id="centralRows"></tbody></table><div id="centralEmpty" class="empty">Nothing here yet.</div></div>
-</section>
-<section id="carousellPanel" hidden>
-<p class="hint">Select cards in Available → Group for Carousell → copy the description. Mark posted after you list them.</p>
-<details class="batchTemplate"><summary>Edit description template</summary>
-<label for="templateIntro">Opening message</label><textarea id="templateIntro" rows="3"></textarea>
-<label for="templateItem">Each card</label><textarea id="templateItem" rows="3"></textarea>
-<p class="hint">Use {card}, {condition}, {price}, {link}. Use {bot_link} anywhere.</p>
-<label for="templateOutro">Closing message (optional)</label><textarea id="templateOutro" rows="2"></textarea>
-<button id="saveTemplate">Save template</button><p class="hint">Applies to all batch previews. Posted batches will show when they need updating.</p></details>
-<section id="collectionsSection">
-<h2 class="sectionHeading">Collections</h2>
-<p class="hint">A collection is one post that keeps itself current. Write one search per line; every available card matching any line is in it, and newly listed cards join on their own.</p>
-<div id="collections" class="batches"></div>
-<details id="newCollection"><summary>New collection</summary>
-<label for="collectionName">Name</label><input id="collectionName" maxlength="150" placeholder="e.g. All shiny and AR">
-<label for="collectionRules">One search per line</label><textarea id="collectionRules" rows="3" placeholder="ar&#10;shiny"></textarea>
-<p class="hint">Each line is a card search, so AR means the rarity and not the letters inside Charizard. Two lines mean either; terms on one line mean both.</p>
-<button id="createCollection">Create collection</button></details>
-</section>
-<h2 class="sectionHeading">Batches</h2>
-<div id="batches" class="batches"></div></section>
-</section>
-<div id="status" role="status" aria-live="polite"></div>
-</main>
-<dialog id="expenseDialog"><h2>Expense</h2><label>Date<input id="expenseDate" type="date"></label><label>Description<input id="expenseDescription" maxlength="200" placeholder="Booth fee"></label><label>Amount · SGD<input id="expenseAmount" inputmode="decimal"></label><p id="expenseError"></p><div class="dialogactions"><button id="expenseCancel">Cancel</button><button id="expenseSave">Save expense</button></div></dialog>
-<dialog id="tradeDialog"><h2>Trade cards</h2><p id="tradeSummary"></p><p class="hint">Choose incoming cards from Drafts. Enter their relative values in Draft cost to split your carried cost; all zero splits equally. They will become available listings.</p><div id="tradeDrafts"></div><label>Cash difference<select id="tradeCashMode"><option value="paid">I pay</option><option value="received">I receive</option></select><input id="tradeCash" inputmode="decimal" value="0"></label><label>Note (optional)<input id="tradeNote" maxlength="300"></label><p id="tradeError"></p><div class="dialogactions"><button id="tradeCancel">Cancel</button><button id="tradeReview">Review trade</button></div></dialog>
-<dialog id="saleEntry"><h2>Actual sale price</h2><p>Enter the amount received for each card (SGD).</p><div id="saleInputs"></div><p id="saleError"></p><div class="dialogactions"><button id="saleCancel">Cancel</button><button id="saleReview">Review sale</button></div></dialog>
-<dialog id="bundleSale"><h2>Sell together</h2><p id="bundleCount"></p><label>Total sold (SGD)<input id="bundleTotal" inputmode="decimal" placeholder="e.g. 250.00"></label><p>Split between cards in proportion to asking prices.</p><p id="bundleError" role="status"></p><div class="dialogactions"><button id="bundleCancel">Cancel</button><button id="bundleReview">Review sale</button></div></dialog>
-<dialog id="confirm"><h2 id="confirmTitle"></h2><p id="confirmText"></p><div id="confirmCards"></div><div class="dialogactions"><button id="confirmNo">Cancel</button><button id="confirmYes" class="primary">Confirm</button></div></dialog>
-<dialog id="batchDialog"><h2>Group selected cards</h2><p id="batchSummary"></p>
-<label for="batchSize">Cards per batch</label><select id="batchSize"><option value="9">9</option><option value="10">10</option></select>
-<label for="batchName">Batch name (optional)</label><input id="batchName" maxlength="100" placeholder="e.g. Pokémon October">
-<div class="dialogactions"><button id="batchCancel">Cancel</button><button id="batchCreate" class="primary">Create batches</button></div></dialog>
-<dialog id="quickEntry"><h2 id="quickName"></h2><label id="quickCustomLabel" hidden>Listing name<input id="quickCustomName" maxlength="180" placeholder="e.g. Eeveelutions set · 9 cards"></label><img id="quickReference" hidden alt="Card reference"><div id="quickTypeStep"><p>Raw or slab?</p><div class="dialogactions"><button id="quickRaw">Raw</button><button id="quickSlabType">Slab</button></div></div><div id="quickDetails" hidden><button id="quickChangeType">← Change type</button><p class="hint">Cost → photos → add next.</p>
-<div class="quickFields"><label id="quickConditionLabel">Condition<select id="quickCondition"><option>M</option><option selected>NM</option><option>LP</option><option>MP</option><option>HP</option><option>Damaged</option></select></label><label id="quickSlabLabel" hidden>Grade<input id="quickSlab" placeholder="PSA 10"></label>
-<label>Cost<input id="quickCost" inputmode="decimal" placeholder="0.00"></label><label>Currency<select id="quickCurrency"><option>SGD</option><option>JPY</option></select></label>
-<label>Asking price · SGD<input id="quickPrice" inputmode="decimal" placeholder="Set now or before submitting"></label></div><p id="quickConverted" class="hint"></p><p id="quickAverage" class="hint"></p>
-<div class="quickPhotos"><div class="quickPhotoSide"><label class="filebutton">Front · optional<input id="quickFront" type="file" accept="image/jpeg,image/png"><img id="quickFrontPreview" hidden alt="Front preview"></label><button id="quickFrontRotate" type="button" hidden>Rotate ↻</button></div><div class="quickPhotoSide"><label class="filebutton">Back · optional<input id="quickBack" type="file" accept="image/jpeg,image/png"><img id="quickBackPreview" hidden alt="Back preview"></label><button id="quickBackRotate" type="button" hidden>Rotate ↻</button></div></div>
-</div><p id="quickError" role="status"></p><div class="dialogactions"><button id="quickCancel">Cancel</button><button id="quickAdd" class="primary">Add & next</button></div></dialog>
-<script src="config.js"></script><script src="app.js" defer></script></body></html>
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The inventory manager has moved</title>
+<link rel="canonical" href="https://moroha29.github.io/card/card_manager/">
+<!-- The script carries the query and the fragment across, which the meta
+     refresh below cannot. A Mini App launch puts its signed initData in the
+     fragment, so a stale menu button that still opens this address has to
+     arrive at the new one with that fragment intact. The meta refresh is the
+     fallback for a browser running no script, a second behind so the script
+     wins whenever there is one. -->
+<script>location.replace("https://moroha29.github.io/card/card_manager/"+location.search+location.hash);</script>
+<meta http-equiv="refresh" content="1; url=https://moroha29.github.io/card/card_manager/">
+<style>body{font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;margin:0;padding:48px 20px;text-align:center}a{color:#376c44}</style>
+</head><body><p>The inventory manager has moved to <a href="https://moroha29.github.io/card/card_manager/">https://moroha29.github.io/card/card_manager/</a>.</p></body></html>
