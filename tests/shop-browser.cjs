@@ -61,6 +61,12 @@ async function openApp(browser,role){
   if(req.method()==='OPTIONS'){await route.fulfill({status:204,headers});return;}
   const url=new URL(req.url());
   state.paths.push(url.pathname);
+  if(url.pathname.startsWith('/inventory-api/shop-photo/')){
+   const parts=url.pathname.split('/');
+   state.photo.push({size:parts[3],id:decodeURIComponent(parts.slice(4).join('/')),auth:req.headers().authorization||''});
+   await route.fulfill({headers:Object.assign({},headers,{'cache-control':'public, max-age=604800'}),contentType:'image/jpeg',body:jpeg});
+   return;
+  }
   const action=url.pathname.split('/').pop();
   // Every response this mock hands back is recorded, so the no-cost rule can
   // be checked over the wire and not only over the rendered page.
@@ -105,10 +111,6 @@ async function openApp(browser,role){
     const found=state.listings.find(l=>l.id===body.id);
     await answer({listing:found,link:'https://t.me/testbot?start=listing_'+body.id,offer:state.cart.items[body.id]||0});
     return;}
-   case 'photo':
-    state.photo.push(body);
-    await route.fulfill({headers,contentType:'image/jpeg',body:jpeg});
-    return;
    case 'cart':
     await answer(cartView());
     return;
@@ -167,7 +169,10 @@ async function openApp(browser,role){
 function finish(state){
  // Only the Mini App's own prefix may be reached from this page: the
  // cost-carrying manager routes live outside it.
- for(const p of state.paths)assert.ok(p.startsWith('/inventory-api/shop/'),'page called '+p);
+ for(const p of state.paths)assert.ok(p.startsWith('/inventory-api/shop/')||p.startsWith('/inventory-api/shop-photo/'),'page called '+p);
+ // A photo is a plain image URL: no session header on it, and cacheable, or
+ // the edge and the phone both throw it away and every scroll pays again.
+ for(const c of state.photo)assert.equal(c.auth,'','a photo was fetched with a session token: '+c.id);
  for(const body of state.bodies)assert.ok(!/cost/i.test(body),'a response carried a cost: '+body);
  assert.deepEqual(state.errors,[],'page errors');
 }
@@ -190,7 +195,7 @@ async function buyerFlow(browser){
  assert.ok(!/cost/i.test(await page.locator('body').innerText()),'a cost appeared in the buyer view');
 
  await page.waitForFunction(()=>document.querySelectorAll('#grid .frame img.ready').length>0);
- assert.ok(state.photo.length>0&&state.photo.every(c=>c.thumbnail===true),'the grid should ask for thumbnails, not full photos');
+ assert.ok(state.photo.length>0&&state.photo.every(c=>c.size==='grid'),'the grid should ask for tile-sized photos, not the stored upload');
  // A hidden attribute coming off is not a photo on the screen: a blob that
  // does not decode leaves a broken image behind, which is what this catches.
  await page.waitForFunction(()=>{const img=document.querySelector('#grid .frame img');return img&&img.complete&&img.naturalWidth>0;},null,{timeout:10000});
@@ -237,7 +242,10 @@ async function buyerFlow(browser){
  assert.equal(await page.locator('#detailPrice').textContent(),'S$299.00');
  assert.match(await page.locator('#photoLabel').textContent(),/Front · 1\/2/);
  assert.ok((await page.evaluate(()=>window.__telegramCalls.back)).includes('show'),'the Telegram back button should appear');
- assert.equal(state.photo.filter(c=>c.thumbnail===false).length,1,'the detail view should load one full-size photo');
+ // Screen-sized, never the stored upload, and the neighbour is warmed so the
+ // arrow shows a photo instead of a gap.
+ assert.ok(state.photo.filter(c=>c.size==='card').length>=1,'the card view should load a screen-sized photo');
+ assert.ok(!state.photo.some(c=>c.size==='full'),'the stored upload should never reach a phone');
  await page.waitForFunction(()=>{const img=document.getElementById('photo');return img&&!img.hidden&&img.complete&&img.naturalWidth>0;},null,{timeout:10000});
  // Buttons the page hides must actually be gone: a stylesheet that sets
  // display on them beats the hidden attribute and puts dead controls back.

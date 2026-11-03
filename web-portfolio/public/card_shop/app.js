@@ -45,7 +45,7 @@ function el(tag, text, cls) {
  return node;
 }
 
-async function api(path, body, blob) {
+async function api(path, body) {
  const form = body instanceof FormData;
  const response = await fetch(base + 'shop/' + path, {
   method: 'POST',
@@ -60,7 +60,7 @@ async function api(path, body, blob) {
   failure.status = response.status;
   throw failure;
  }
- return blob ? response.blob() : response.json();
+ return response.json();
 }
 // Every handler wants the same thing from a failure: a session that has gone
 // sends the buyer back to Telegram, anything else is said out loud.
@@ -69,50 +69,30 @@ function fail(failure) {
  status(failure.message, true);
 }
 
-// Photos are fetched with the session token and held as blob URLs, because the
-// bot has no public photo endpoint and a buyer's <img src> cannot carry a
-// bearer token. The cache is bounded so a long scroll cannot grow without end.
-const photos = new Map(), inFlight = new Map();
-function cachePhoto(id, url) {
- photos.set(id, url);
- while (photos.size > 60) {
-  const oldest = photos.keys().next().value;
-  URL.revokeObjectURL(photos.get(oldest));
-  photos.delete(oldest);
- }
-}
-function photoURL(id, thumbnail) {
- const cacheKey = (thumbnail ? 't:' : 'f:') + id;
- if (photos.has(cacheKey)) return Promise.resolve(photos.get(cacheKey));
- if (inFlight.has(cacheKey)) return inFlight.get(cacheKey);
- const pending = api('photo', {photo: id, thumbnail: !!thumbnail}, true)
-  .then(blob => { const url = URL.createObjectURL(blob); cachePhoto(cacheKey, url); return url; })
-  .finally(() => inFlight.delete(cacheKey));
- inFlight.set(cacheKey, pending);
- return pending;
-}
-const watcher = new IntersectionObserver(entries => {
- for (const entry of entries) {
-  if (!entry.isIntersecting) continue;
-  watcher.unobserve(entry.target);
-  const id = entry.target.dataset.photo;
-  photoURL(id, true).then(url => { entry.target.src = url; entry.target.classList.add('ready'); }).catch(() => {});
- }
-}, {rootMargin: '300px'});
+// Photos are plain image URLs now. The bytes behind one photo ID never
+// change, so the edge holds them for every buyer and the phone holds them
+// between visits; a POST into a blob could be cached by neither, which is why
+// the shop used to re-download every thumbnail on every scroll.
+//
+// Letting <img> do the work also hands the browser back the things it is good
+// at and a script is bad at: when to start, how many at once, and what to
+// drop. The grid asks for a tile, the card view for something screen-sized --
+// never the stored upload, which can be megabytes.
+const photoSrc = (id, size) => base + 'shop-photo/' + size + '/' + encodeURIComponent(id);
 
 function thumbnail(photo, name) {
  const frame = el('div', undefined, 'frame');
  if (photo) {
   const img = document.createElement('img');
-  // Decorative: the card's name is already written beside it. It also must
-  // not be hidden before it loads -- a hidden image has no layout box, so the
-  // observer would never see it come into view and the photo would never be
-  // asked for. It fades in instead.
+  // Decorative: the card's name is already written beside it. It fades in
+  // over the frame's own shimmer rather than appearing half-drawn.
   img.alt = '';
   img.loading = 'lazy';
-  img.dataset.photo = photo;
+  img.decoding = 'async';
+  img.src = photoSrc(photo, 'grid');
+  img.addEventListener('load', () => img.classList.add('ready'));
+  if (img.complete && img.naturalWidth > 0) img.classList.add('ready');
   frame.appendChild(img);
-  watcher.observe(img);
  } else {
   frame.classList.add('empty');
   frame.textContent = 'No photo';
@@ -125,8 +105,10 @@ function card(item) {
  const node = el('button', undefined, 'card');
  node.type = 'button';
  node.setAttribute('role', 'listitem');
- node.appendChild(thumbnail((item.photos || []).find(p => p), item.name));
- node.append(el('p', item.name, 'name'), el('p', grade(item) + ' · #' + item.id, 'meta'), el('p', money(item.price), 'price'));
+ const frame = thumbnail((item.photos || []).find(p => p), item.name);
+ frame.appendChild(el('span', grade(item), 'pill'));
+ node.appendChild(frame);
+ node.append(el('p', item.name, 'name'), el('p', '#' + item.id, 'meta'), el('p', money(item.price), 'price'));
  node.addEventListener('click', () => openListing(item.id));
  return node;
 }
@@ -176,8 +158,12 @@ function showPhoto() {
  $('photoLabel').textContent = slots.length > 1 ? photoLabel(slot) + ' · ' + (slot + 1) + '/' + slots.length : '';
  if (!slots.length) return;
  slot = (slot + slots.length) % slots.length;
- const wanted = slots[slot];
- photoURL(wanted, false).then(url => { if (open && slots[slot] === wanted) img.src = url; }).catch(() => status('Could not load that photo.', true));
+ img.classList.remove('ready');
+ img.onload = () => img.classList.add('ready');
+ img.src = photoSrc(slots[slot], 'card');
+ for (const near of [slots[(slot + 1) % slots.length], slots[(slot - 1 + slots.length) % slots.length]]) {
+  new Image().src = photoSrc(near, 'card');
+ }
 }
 
 async function openListing(id) {
